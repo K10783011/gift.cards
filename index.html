@@ -1,13 +1,13 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>智慧商品卡皮夾</title>
-    <!-- 引入 Tailwind CSS 確保介面直覺、美觀、行動裝置友善 -->
+    <title>便利商品卡管理系統</title>
+    <!-- Tailwind CSS 確保介面直覺、簡單 -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- 引入 JsBarcode 用於動態生成一維條碼 -->
-    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <!-- QuaggaJS 用於一維條碼掃描 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
     <style>
         .grayscale-card {
             filter: grayscale(100%);
@@ -15,299 +15,312 @@
         }
     </style>
 </head>
-<body class="bg-gray-50 text-gray-800 font-sans antialiased pb-12">
+<body class="bg-gray-50 text-gray-800 font-sans">
 
-    <!-- 頂部導航列 -->
-    <header class="bg-white shadow-sm sticky top-0 z-20">
-        <div class="max-w-md mx-auto px-4 py-4 flex justify-between items-center">
-            <h1 class="text-xl font-bold text-indigo-600 flex items-center gap-2">
-                💳 智慧商品卡皮夾
-            </h1>
-            <div class="flex gap-2">
-                <button onclick="openAddModal()" class="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium shadow hover:bg-indigo-700 transition">
-                    + 新增卡片
+    <!-- 頂部導覽列 -->
+    <header class="bg-emerald-600 text-white shadow-md sticky top-0 z-50">
+        <div class="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
+            <h1 class="text-xl font-bold">💳 我的商品卡錢包</h1>
+            <div class="space-x-2">
+                <button onclick="openAddModal()" class="bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
+                    + 新增商品卡
                 </button>
             </div>
         </div>
     </header>
 
     <!-- 主要內容區 -->
-    <main class="max-w-md mx-auto px-4 mt-4 space-y-4">
-        
+    <main class="max-w-4xl mx-auto px-4 py-6">
         <!-- 搜尋與篩選列 -->
-        <div class="flex gap-2">
-            <input type="text" id="searchInput" placeholder="搜尋超商或商品名稱..." oninput="renderCards()" 
-                   class="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-            <select id="sortSelect" onchange="renderCards()" class="border rounded-lg px-2 text-sm bg-white">
-                <option value="expiry">優先期限到期</option>
-                <option value="balance">餘額多到少</option>
+        <div class="mb-6 flex flex-col sm:flex-row gap-3">
+            <input type="text" id="searchInput" placeholder="搜尋商品名稱或超商..." oninput="renderCards()" class="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <select id="storeFilter" onchange="renderCards()" class="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                <option value="">全部超商/通路</option>
+                <option value="7-11">7-11 統一超商</option>
+                <option value="全家">全家便利商店</option>
+                <option value="萊爾富">萊爾富</option>
+                <option value="OK超商">OK超商</option>
+                <option value="其他">其他</option>
             </select>
         </div>
 
-        <!-- 批次匯入/相機掃描模擬區 -->
-        <div class="bg-white p-3 rounded-xl shadow-sm border border-dashed border-indigo-300 flex justify-around text-sm">
-            <label class="cursor-pointer text-indigo-600 font-medium hover:underline flex items-center gap-1">
-                📷 照片批次匯入
-                <input type="file" accept="image/*" multiple class="hidden" onchange="batchImportImages(event)">
-            </label>
-            <span class="text-gray-300">|</span>
-            <button onclick="alert('已啟動相機掃描（模擬）：自動辨識條碼與超商中...'); simulateScan();" class="text-indigo-600 font-medium hover:underline">
-                ⚡ 單張相機掃描
-            </button>
-        </div>
-
-        <!-- 商品卡列表 -->
-        <div id="cardList" class="space-y-3">
-            <!-- 動態生成卡片 -->
+        <!-- 商品卡列表 (依到期日優先排序) -->
+        <div id="cardGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- 動態載入 -->
         </div>
     </main>
 
-    <!-- 結帳/出示條碼 Modal -->
-    <div id="checkoutModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center p-4">
-        <div class="bg-white w-full max-w-sm rounded-2xl p-6 shadow-xl text-center relative">
-            <button onclick="closeCheckoutModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-xl font-bold">&times;</button>
-            
-            <div id="modalStoreBadge" class="inline-block px-3 py-1 rounded-full text-xs font-bold mb-2"></div>
-            <h3 id="modalCardTitle" class="text-lg font-bold text-gray-800 mb-4"></h3>
-
-            <!-- 一維條碼容器 -->
-            <div class="bg-gray-50 p-4 rounded-xl border mb-4 flex justify-center">
-                <svg id="barcodeSvg"></svg>
-            </div>
-            <p id="modalBarcodeText" class="text-xs text-gray-500 mb-4 font-mono tracking-widest"></p>
-
-            <div class="bg-indigo-50 p-3 rounded-xl mb-4 flex justify-between items-center">
-                <span class="text-sm text-gray-600">目前剩餘價值：</span>
-                <span id="modalBalance" class="text-xl font-bold text-indigo-600"></span>
-            </div>
-
-            <div class="flex gap-2">
-                <button onclick="useCard(1)" class="flex-1 bg-red-500 text-white py-2 rounded-xl text-sm font-medium hover:bg-red-600 transition">
-                    扣款 1 元/份
-                </button>
-                <button onclick="useCard(10)" class="flex-1 bg-indigo-600 text-white py-2 rounded-xl text-sm font-medium hover:bg-indigo-700 transition">
-                    全部折抵完畢
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- 手動新增卡片 Modal -->
-    <div id="addModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center p-4">
-        <div class="bg-white w-full max-w-sm rounded-2xl p-6 shadow-xl relative">
-            <h3 class="text-lg font-bold text-gray-800 mb-4">新增商品卡</h3>
-            <div class="space-y-3">
+    <!-- 新增/編輯 Modal -->
+    <div id="cardModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-xl max-w-md w-full p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+            <h2 id="modalTitle" class="text-lg font-bold mb-4">新增商品卡</h2>
+            <form id="cardForm" onsubmit="saveCard(event)" class="space-y-4">
+                <input type="hidden" id="cardId">
                 <div>
-                    <label class="text-xs text-gray-500">超商類型 (自動或手動)</label>
-                    <select id="addStore" class="w-full mt-1 border rounded-lg p-2 text-sm">
-                        <option value="7-11">7-ELEVEN</option>
+                    <label class="block text-sm font-medium mb-1">商品名稱</label>
+                    <input type="text" id="cardName" required class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">超商/通路 (自動或手動)</label>
+                    <select id="cardStore" class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500">
+                        <option value="7-11">7-11 統一超商</option>
                         <option value="全家">全家便利商店</option>
                         <option value="萊爾富">萊爾富</option>
                         <option value="OK超商">OK超商</option>
+                        <option value="其他">其他</option>
                     </select>
                 </div>
-                <div>
-                    <label class="text-xs text-gray-500">商品名稱</label>
-                    <input type="text" id="addTitle" placeholder="例如：中杯拿鐵" class="w-full mt-1 border rounded-lg p-2 text-sm">
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">剩餘金額/數量</label>
+                        <input type="number" id="cardBalance" step="any" required class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">有效期限 (選填)</label>
+                        <input type="date" id="cardExpiry" class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500">
+                    </div>
                 </div>
                 <div>
-                    <label class="text-xs text-gray-500">一維條碼數字</label>
-                    <input type="text" id="addBarcode" placeholder="例如：9876543210123" class="w-full mt-1 border rounded-lg p-2 text-sm">
+                    <label class="block text-sm font-medium mb-1">一維條碼數字</label>
+                    <input type="text" id="cardBarcode" required class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-emerald-500">
                 </div>
-                <div>
-                    <label class="text-xs text-gray-500">總金額 / 數量餘額</label>
-                    <input type="number" id="addBalance" placeholder="例如：100 或 5" class="w-full mt-1 border rounded-lg p-2 text-sm">
+                <!-- 批次照片上傳/相機掃描區 -->
+                <div class="border-2 border-dashed border-gray-300 p-4 rounded-lg text-center">
+                    <p class="text-sm text-gray-500 mb-2">上傳商品卡截圖或相機辨識</p>
+                    <input type="file" id="imageInput" accept="image/*" multiple onchange="handleImageUpload(event)" class="text-sm">
                 </div>
-                <div>
-                    <label class="text-xs text-gray-500">有效期限</label>
-                    <input type="date" id="addExpiry" class="w-full mt-1 border rounded-lg p-2 text-sm">
+                <div class="flex justify-end space-x-2 pt-4">
+                    <button type="button" onclick="closeModal()" class="px-4 py-2 border rounded-lg text-gray-600 hover:bg-gray-100">取消</button>
+                    <button type="submit" class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">儲存</button>
                 </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 結帳展示條碼 Modal -->
+    <div id="checkoutModal" class="fixed inset-0 bg-black bg-opacity-70 hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-xl max-w-sm w-full p-6 text-center shadow-xl">
+            <h3 id="checkoutName" class="text-xl font-bold mb-2">商品名稱</h3>
+            <p id="checkoutStore" class="text-sm text-emerald-600 font-semibold mb-4"></p>
+            <div class="bg-gray-100 p-4 rounded-lg mb-4">
+                <div id="barcodeDisplay" class="font-mono text-2xl tracking-widest font-bold my-2 py-4 bg-white border rounded"></div>
+                <p class="text-xs text-gray-500">請向店員出示上方條碼</p>
             </div>
-            <div class="flex gap-2 mt-6">
-                <button onclick="closeAddModal()" class="flex-1 bg-gray-200 text-gray-700 py-2 rounded-xl text-sm font-medium">取消</button>
-                <button onclick="saveNewCard()" class="flex-1 bg-indigo-600 text-white py-2 rounded-xl text-sm font-medium">儲存</button>
+            <div class="mb-4 text-left">
+                <label class="block text-sm font-medium mb-1">本次結帳扣除金額/數量：</label>
+                <input type="number" id="deductAmount" value="1" step="any" class="w-full px-3 py-2 border rounded-lg text-center font-bold">
+            </div>
+            <div class="flex space-x-2">
+                <button onclick="closeCheckoutModal()" class="flex-1 py-2 border rounded-lg text-gray-600">關閉</button>
+                <button onclick="confirmCheckout()" class="flex-1 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700">確認扣款</button>
             </div>
         </div>
     </div>
 
-    <!-- JavaScript 邏輯實作 -->
+    <!-- JavaScript 邏輯 -->
     <script>
-        // 初始模擬資料
-        let cards = [
-            { id: 1, store: '7-11', title: 'CITY CAFE 中杯拿鐵', barcode: '4710088123456', balance: 3, expiry: '2026-06-30' },
-            { id: 2, store: '全家', title: 'FamiCollection 綠茶', barcode: '4711234567890', balance: 0, expiry: '2026-04-15' },
-            { id: 3, store: '萊爾富', title: 'Hi Café 大杯美式', barcode: '4719876543210', balance: 1, expiry: '2026-05-10' }
+        // 初始化本地儲存資料
+        let cards = JSON.parse(localStorage.getItem('my_product_cards')) || [
+            { id: '1', name: '統一布丁 (測試卡)', store: '7-11', balance: 50, expiry: '2026-06-30', barcode: '4710088432109' },
+            { id: '2', name: '中杯拿鐵', store: '全家', balance: 0, expiry: '2026-04-10', barcode: '4712345678901' }
         ];
 
-        let currentActiveCardId = null;
+        let currentCheckoutId = null;
 
-        // 超商標籤顏色對應
-        const storeColors = {
-            '7-11': 'bg-orange-100 text-orange-600 border-orange-200',
-            '全家': 'bg-green-100 text-green-600 border-green-200',
-            '萊爾富': 'bg-red-100 text-red-600 border-red-200',
-            'OK超商': 'bg-blue-100 text-blue-600 border-blue-200'
-        };
+        function saveToStorage() {
+            localStorage.setItem('my_product_cards', JSON.stringify(cards));
+        }
 
-        // 渲染商品卡清單
+        // 自動辨識超商邏輯
+        function detectStore(text) {
+            if (text.includes('7-11') || text.includes('統一') || text.includes('ibon')) return '7-11';
+            if (text.includes('全家') || text.includes('Fami') || text.includes('FamiPort')) return '全家';
+            if (text.includes('萊爾富') || text.includes('Hi-Life')) return '萊爾富';
+            if (text.includes('OK') || text.includes('OK超商')) return 'OK超商';
+            return '其他';
+        }
+
+        // 渲染商品卡列表 (規則：若有期限，優先顯示快到期之商品卡)
         function renderCards() {
-            const listEl = document.getElementById('cardList');
-            const searchVal = document.getElementById('searchInput').value.toLowerCase();
-            const sortVal = document.getElementById('sortSelect').value;
+            const grid = document.getElementById('cardGrid');
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const filterStore = document.getElementById('storeFilter').value;
 
-            let filtered = cards.filter(c => c.title.toLowerCase().includes(searchVal) || c.store.toLowerCase().includes(searchVal));
-
-            // 排序邏輯：4. 若有期限，優先顯示快到期之商品卡
-            filtered.sort((a, b) => {
-                if (sortVal === 'expiry') {
-                    return new Date(a.expiry) - new Date(b.expiry);
-                } else {
-                    return b.balance - a.balance;
-                }
+            let filtered = cards.filter(card => {
+                const matchSearch = card.name.toLowerCase().includes(search) || card.store.toLowerCase().includes(search);
+                const matchStore = filterStore === '' || card.store === filterStore;
+                return matchSearch && matchStore;
             });
 
+            // 排序：有期限者優先，日期越近越前面；沒有期限者排在後面
+            filtered.sort((a, b) => {
+                if (!a.expiry) return 1;
+                if (!b.expiry) return -1;
+                return new Date(a.expiry) - new Date(b.expiry);
+            });
+
+            grid.innerHTML = '';
+
             if (filtered.length === 0) {
-                listEl.innerHTML = `<div class="text-center py-8 text-gray-400 text-sm">找不到符合的商品卡</div>`;
+                grid.innerHTML = `<p class="col-span-2 text-center text-gray-400 py-10">沒有找到相關商品卡</p>`;
                 return;
             }
 
-            listEl.innerHTML = filtered.map(card => {
+            filtered.forEach(card => {
                 const isDepleted = card.balance <= 0;
-                const cardClass = isDepleted ? 'grayscale-card bg-gray-100' : 'bg-white hover:border-indigo-300';
-                const storeBadgeStyle = storeColors[card.store] || 'bg-gray-100 text-gray-600';
-
-                return `
-                    <div onclick="openCheckoutModal(${card.id})" class="${cardClass} border rounded-2xl p-4 shadow-sm transition cursor-pointer relative flex justify-between items-center">
+                const cardClass = isDepleted ? 'grayscale-card bg-gray-100 border-gray-300' : 'bg-white border-emerald-100 shadow-sm hover:shadow-md';
+                
+                grid.innerHTML += `
+                    <div class="border rounded-xl p-4 flex flex-col justify-between transition ${cardClass}">
                         <div>
-                            <div class="flex items-center gap-2 mb-1">
-                                <span class="px-2 py-0.5 rounded-full text-xs font-bold border ${storeBadgeStyle}">${card.store}</span>
-                                <span class="text-xs text-gray-400">期限：${card.expiry}</span>
+                            <div class="flex justify-between items-start mb-2">
+                                <span class="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-800">${card.store}</span>
+                                <div class="space-x-1">
+                                    <button onclick="openEditModal('${card.id}')" class="text-gray-400 hover:text-blue-600 text-sm">✏️</button>
+                                    <button onclick="deleteCard('${card.id}')" class="text-gray-400 hover:text-red-600 text-sm">🗑️</button>
+                                </div>
                             </div>
-                            <h3 class="font-bold text-gray-800 text-base">${card.title}</h3>
-                            <p class="text-xs text-gray-500 font-mono mt-1">條碼：${card.barcode}</p>
+                            <h3 class="font-bold text-lg mb-1">${card.name}</h3>
+                            <p class="text-sm text-gray-500 mb-2">期限：${card.expiry || '無期限'}</p>
                         </div>
-                        <div class="text-right">
-                            ${isDepleted ? 
-                                `<span class="bg-gray-200 text-gray-600 text-xs px-2.5 py-1 rounded-full font-bold">已使用完畢</span>` : 
-                                `<span class="text-lg font-extrabold text-indigo-600">剩餘 ${card.balance}</span>`
-                            }
+                        <div>
+                            <div class="flex justify-between items-end mt-4">
+                                <div>
+                                    <span class="text-xs text-gray-400 block">剩餘餘額/數量</span>
+                                    <span class="text-xl font-black ${isDepleted ? 'text-gray-500' : 'text-emerald-600'}">${card.balance}</span>
+                                </div>
+                                ${isDepleted ? 
+                                    '<span class="bg-red-100 text-red-700 text-xs font-bold px-2.5 py-1 rounded">已使用完畢</span>' : 
+                                    `<button onclick="openCheckoutModal('${card.id}')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition">出示結帳</button>`
+                                }
+                            </div>
                         </div>
                     </div>
                 `;
-            }).join('');
+            });
         }
 
-        // 開啟結帳/出示條碼視窗 (功能 2)
+        // 開啟新增 Modal
+        function openAddModal() {
+            document.getElementById('modalTitle').innerText = '新增商品卡';
+            document.getElementById('cardForm').reset();
+            document.getElementById('cardId').value = '';
+            document.getElementById('cardModal').classList.remove('hidden');
+        }
+
+        // 開啟編輯 Modal
+        function openEditModal(id) {
+            const card = cards.find(c => c.id === id);
+            if (!card) return;
+            document.getElementById('modalTitle').innerText = '編輯商品卡';
+            document.getElementById('cardId').value = card.id;
+            document.getElementById('cardName').value = card.name;
+            document.getElementById('cardStore').value = card.store;
+            document.getElementById('cardBalance').value = card.balance;
+            document.getElementById('cardExpiry').value = card.expiry || '';
+            document.getElementById('cardBarcode').value = card.barcode;
+            document.getElementById('cardModal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('cardModal').classList.add('hidden');
+        }
+
+        // 儲存商品卡（支援新增與編輯）
+        function saveCard(e) {
+            e.preventDefault();
+            const id = document.getElementById('cardId').value;
+            const name = document.getElementById('cardName').value;
+            const store = document.getElementById('cardStore').value;
+            const balance = parseFloat(document.getElementById('cardBalance').value);
+            const expiry = document.getElementById('cardExpiry').value;
+            const barcode = document.getElementById('cardBarcode').value;
+
+            if (id) {
+                const card = cards.find(c => c.id === id);
+                card.name = name;
+                card.store = store;
+                card.balance = balance;
+                card.expiry = expiry;
+                card.barcode = barcode;
+            } else {
+                const newCard = {
+                    id: Date.now().toString(),
+                    name, store, balance, expiry, barcode
+                };
+                cards.push(newCard);
+            }
+
+            saveToStorage();
+            closeModal();
+            renderCards();
+        }
+
+        // 刪除商品卡
+        function deleteCard(id) {
+            if (confirm('確定要刪除這張商品卡嗎？')) {
+                cards = cards.filter(c => c.id !== id);
+                saveToStorage();
+                renderCards();
+            }
+        }
+
+        // 批次照片上傳與智慧模擬解析
+        function handleImageUpload(e) {
+            const files = e.target.files;
+            if (!files.length) return;
+
+            // 模擬批次匯入與文字辨識（可整合 OCR 服務，此處以自動帶入為範例）
+            for (let i = 0; i < files.length; i++) {
+                const file = files.name;
+                // 模擬從檔名或圖片內容辨識
+                const autoName = "批次匯入商品 " + (cards.length + 1);
+                const autoStore = detectStore(file);
+                
+                cards.push({
+                    id: Date.now().toString() + i,
+                    name: autoName,
+                    store: autoStore,
+                    balance: 1, // 預設數量
+                    expiry: '',
+                    barcode: '1234567890' + Math.floor(Math.random() * 1000)
+                });
+            }
+            saveToStorage();
+            renderCards();
+            alert(`成功批次匯入 ${files.length} 張商品卡！請至列表編輯詳細資訊與條碼。`);
+        }
+
+        // 結帳相關功能
         function openCheckoutModal(id) {
-            currentActiveCardId = id;
+            currentCheckoutId = id;
             const card = cards.find(c => c.id === id);
             if (!card) return;
 
-            document.getElementById('modalCardTitle').innerText = card.title;
-            document.getElementById('modalBalance').innerText = card.balance;
-            document.getElementById('modalBarcodeText').innerText = card.barcode;
-            
-            const badge = document.getElementById('modalStoreBadge');
-            badge.innerText = card.store;
-            badge.className = `inline-block px-3 py-1 rounded-full text-xs font-bold mb-2 border ${storeColors[card.store]}`;
-
-            // 生成一維條碼
-            try {
-                JsBarcode("#barcodeSvg", card.barcode, {
-                    format: "CODE128",
-                    width: 2,
-                    height: 60,
-                    displayValue: false
-                });
-            } catch (e) {
-                console.error("條碼生成失敗", e);
-            }
-
+            document.getElementById('checkoutName').innerText = card.name;
+            document.getElementById('checkoutStore').innerText = card.store;
+            document.getElementById('barcodeDisplay').innerText = card.barcode;
+            document.getElementById('deductAmount').value = 1;
             document.getElementById('checkoutModal').classList.remove('hidden');
         }
 
         function closeCheckoutModal() {
             document.getElementById('checkoutModal').classList.add('hidden');
+            currentCheckoutId = null;
         }
 
-        // 扣款並同步更新餘額 (功能 2 & 3)
-        function useCard(amount) {
-            const card = cards.find(c => c.id === currentActiveCardId);
+        function confirmCheckout() {
+            const deduct = parseFloat(document.getElementById('deductAmount').value);
+            const card = cards.find(c => c.id === currentCheckoutId);
             if (!card) return;
 
-            card.balance = Math.max(0, card.balance - amount);
-            document.getElementById('modalBalance').innerText = card.balance;
-            
+            card.balance = Math.max(0, card.balance - deduct);
+            saveToStorage();
+            closeCheckoutModal();
             renderCards();
-
-            if (card.balance === 0) {
-                alert('此商品卡已使用完畢！');
-                closeCheckoutModal();
-            } else {
-                alert(`扣款成功！剩餘數量：${card.balance}`);
-            }
         }
 
-        // 模擬相機單張掃描 / 智慧辨識超商 (功能 1 & 5)
-        function simulateScan() {
-            setTimeout(() => {
-                // 模擬系統自動辨識結果
-                const mockScanned = {
-                    id: Date.now(),
-                    store: '7-11', // 自動辨識
-                    title: '【自動辨識】御茶園特萃茶',
-                    barcode: '4719999' + Math.floor(100000 + Math.random() * 900000),
-                    balance: 1,
-                    expiry: '2026-12-31'
-                };
-                cards.unshift(mockScanned);
-                renderCards();
-                alert('成功透過相機掃描並自動辨識超商與條碼！');
-            }, 1000);
-        }
-
-        // 模擬照片批次匯入 (功能 1 & 5)
-        function batchImportImages(event) {
-            const files = event.target.files;
-            if (files.length === 0) return;
-
-            // 模擬批次辨識多張截圖
-            for (let i = 0; i < files.length; i++) {
-                cards.unshift({
-                    id: Date.now() + i,
-                    store: i % 2 === 0 ? '全家' : '7-11', // 自動辨識超商
-                    title: `【批次匯入】商品卡 #${i + 1}`,
-                    barcode: '4718888' + Math.floor(10000 + Math.random() * 90000),
-                    balance: Math.floor(1 + Math.random() * 5),
-                    expiry: '2026-08-30'
-                });
-            }
-            renderCards();
-            alert(`成功批次匯入 ${files.length} 張商品卡截圖！`);
-        }
-
-        // 手動新增相關控制
-        function openAddModal() { document.getElementById('addModal').classList.remove('hidden'); }
-        function closeAddModal() { document.getElementById('addModal').classList.add('hidden'); }
-        
-        function saveNewCard() {
-            const store = document.getElementById('addStore').value;
-            const title = document.getElementById('addTitle').value;
-            const barcode = document.getElementById('addBarcode').value;
-            const balance = parseInt(document.getElementById('addBalance').value);
-            const expiry = document.getElementById('addExpiry').value;
-
-            if (!title || !barcode || isNaN(balance) || !expiry) {
-                alert('請完整填寫所有欄位！');
-                return;
-            }
-
-            cards.unshift({ id: Date.now(), store, title, barcode, balance, expiry });
-            renderCards();
-            closeAddModal();
-        }
-
-        // 初始化渲染
+        // 初始化載入
         renderCards();
     </script>
 </body>
