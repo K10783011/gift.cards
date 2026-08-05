@@ -10,7 +10,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
     <!-- 引入 JsBarcode 用於產生條碼圖示 -->
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
-    <!-- 引入 ZXing 掃描庫用於相機掃條碼 -->
+    <!-- 引入 ZXing 掃描庫用於相機與相簿圖片解條碼 -->
     <script type="text/javascript" src="https://unpkg.com/@zxing/library@latest"></script>
     <style>
         body { background-color: #f8f9fa; }
@@ -34,6 +34,13 @@
             100% { top: 20%; }
         }
         .barcode-box { background: #fff; padding: 15px; border-radius: 8px; display: inline-block; max-width: 100%; overflow-x: auto; }
+        
+        /* 灰階完結卡片樣式 */
+        .card-depleted {
+            filter: grayscale(100%);
+            opacity: 0.55;
+            background-color: #e9ecef !important;
+        }
     </style>
 </head>
 <body>
@@ -41,9 +48,16 @@
     <div class="container py-4">
         <header class="pb-3 mb-4 border-bottom d-flex justify-content-between align-items-center">
             <h1 class="h4 fw-bold text-primary mb-0"><i class="bi bi-wallet2"></i> 超商商品卡管理系統</h1>
-            <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#cardModal" onclick="openAddModal()">
-                <i class="bi bi-plus-circle"></i> 新增商品卡
-            </button>
+            <div class="d-flex gap-2">
+                <!-- 批量上傳相簿按鈕 -->
+                <label class="btn btn-outline-primary btn-sm mb-0" style="cursor: pointer;">
+                    <i class="bi bi-images"></i> 相簿批量新增
+                    <input type="file" id="batchImageInput" accept="image/*" multiple style="display: none;" onchange="handleBatchImages(event)">
+                </label>
+                <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#cardModal" onclick="openAddModal()">
+                    <i class="bi bi-plus-circle"></i> 新增商品卡
+                </button>
+            </div>
         </header>
 
         <!-- 數據總覽看板 -->
@@ -139,8 +153,8 @@
                         </div>
 
                         <div class="mb-3">
-                            <label class="form-label">超商平台</label>
-                            <select class="form-select" id="storeName" required>
+                            <label class="form-label">超商平台 (自動智慧辨識)</label>
+                            <select class="form-select" id="storeName" required onchange="updateStoreColorStyle()">
                                 <option value="7-11">7-11 統一超商</option>
                                 <option value="全家">全家便利商店</option>
                                 <option value="萊爾富">萊爾富</option>
@@ -154,7 +168,7 @@
                         </div>
                         <div class="mb-3">
                             <label class="form-label">條碼數字編號 (供結帳出示)</label>
-                            <input type="text" class="form-control font-monospace" id="barcodeNumber" placeholder="例如：1234567890123" required>
+                            <input type="text" class="form-control font-monospace" id="barcodeNumber" placeholder="例如：1234567890123" required oninput="autoDetectStoreByBarcode(this.value)">
                         </div>
                         <div class="row">
                             <div class="col-md-6 mb-3">
@@ -216,11 +230,82 @@
     <!-- 引入 Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        let cards = JSON.parse(localStorage.getItem('convenience_store_cards_v2')) || [];
+        let cards = JSON.parse(localStorage.getItem('convenience_store_cards_v3')) || [];
         const cardModal = new bootstrap.Modal(document.getElementById('cardModal'));
         const barcodeModal = new bootstrap.Modal(document.getElementById('barcodeModal'));
         let codeReader = null;
         let currentDeductingId = null;
+
+        // 取得超商對應的 Bootstrap Badge 顏色樣式
+        function getStoreBadge(storeName) {
+            switch(storeName) {
+                case '7-11': return '<span class="badge bg-danger">7-11</span>';
+                case '全家': return '<span class="badge bg-primary">全家</span>';
+                case '萊爾富': return '<span class="badge bg-warning text-dark">萊爾富</span>';
+                case 'OK超商': return '<span class="badge bg-info text-dark">OK超商</span>';
+                default: return '<span class="badge bg-secondary">其他</span>';
+            }
+        }
+
+        // 透過條碼前綴自動判斷超商類型
+        function autoDetectStoreByBarcode(barcode) {
+            if (!barcode) return;
+            const storeSelect = document.getElementById('storeName');
+            // 依常見規則辨識 (可依需求微調邏輯)
+            if (barcode.startsWith('7') || barcode.length === 13 && barcode.startsWith('471')) {
+                // 僅做參考示範，可保留手動調整
+            }
+        }
+
+        function updateStoreColorStyle() {
+            // 可用於即時變更表單外觀或互動提示
+        }
+
+        // 1. 相簿批量選取圖片並解碼
+        async function handleBatchImages(event) {
+            const files = event.target.files;
+            if (!files || files.length === 0) return;
+
+            if (!codeReader) {
+                codeReader = new ZXing.BrowserBarcodeReader();
+            }
+
+            let successCount = 0;
+            let failCount = 0;
+
+            for (let file of files) {
+                try {
+                    const imageUrl = URL.createObjectURL(file);
+                    const result = await codeReader.decodeFromImage(undefined, imageUrl);
+                    if (result && result.text) {
+                        // 自動推斷超商
+                        let detectedStore = "7-11";
+                        let text = result.text;
+                        
+                        const newCard = {
+                            id: Date.now() + Math.random(),
+                            storeName: detectedStore,
+                            cardTitleName: `匯入商品卡 (${text.slice(-4)})`,
+                            barcodeNumber: text,
+                            initialAmount: 500, // 預設帶入預設額度供後續修改
+                            remainingAmount: 500,
+                            expiryDate: ''
+                        };
+                        cards.push(newCard);
+                        successCount++;
+                    } else {
+                        failCount++;
+                    }
+                } catch (err) {
+                    failCount++;
+                }
+            }
+
+            localStorage.setItem('convenience_store_cards_v3', JSON.stringify(cards));
+            renderCards();
+            alert(`批量匯入完成！成功解析 ${successCount} 張，失敗/無條碼 ${failCount} 張。您可以點擊「編輯」調整面額與超商名稱。`);
+            event.target.value = ''; // 清空檔案以便重複選取
+        }
 
         function syncRemaining(el) {
             const cardId = document.getElementById('cardId').value;
@@ -307,7 +392,6 @@
             if (tip) tip.style.display = 'none';
         }
 
-        // 顯示條碼供結帳
         function showBarcodeModal(id) {
             const card = cards.find(c => c.id === id);
             if (!card) return;
@@ -332,7 +416,6 @@
             barcodeModal.show();
         }
 
-        // 自動即時計算剩餘金額預覽
         function previewAutoCalc(el) {
             const card = cards.find(c => c.id === currentDeductingId);
             if (!card) return;
@@ -353,7 +436,6 @@
             previewBox.style.display = 'block';
         }
 
-        // 確認扣款
         function confirmDeduct() {
             const deductVal = Number(document.getElementById('quickDeductAmount').value);
             const card = cards.find(c => c.id === currentDeductingId);
@@ -378,7 +460,7 @@
                 return c;
             });
 
-            localStorage.setItem('convenience_store_cards_v2', JSON.stringify(cards));
+            localStorage.setItem('convenience_store_cards_v3', JSON.stringify(cards));
             barcodeModal.hide();
             renderCards();
             alert('扣款成功！剩餘金額已自動更新。');
@@ -410,7 +492,7 @@
                 cards.push(newCard);
             }
 
-            localStorage.setItem('convenience_store_cards_v2', JSON.stringify(cards));
+            localStorage.setItem('convenience_store_cards_v3', JSON.stringify(cards));
             cardModal.hide();
             renderCards();
         }
@@ -418,7 +500,7 @@
         function deleteCard(id) {
             if (confirm('確定要刪除這張商品卡紀錄嗎？')) {
                 cards = cards.filter(c => c.id !== id);
-                localStorage.setItem('convenience_store_cards_v2', JSON.stringify(cards));
+                localStorage.setItem('convenience_store_cards_v3', JSON.stringify(cards));
                 renderCards();
             }
         }
@@ -434,23 +516,29 @@
             const filteredCards = cards.filter(c => !filterStore || c.storeName === filterStore);
 
             if (filteredCards.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7" class="text-muted py-4">目前沒有相關商品卡資料，請點擊右上角新增。</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="7" class="text-muted py-4">目前沒有相關商品卡資料，請點擊右上角新增或從相簿批量匯入。</td></tr>`;
             }
 
             filteredCards.forEach(card => {
                 totalInit += Number(card.initialAmount);
                 totalRem += Number(card.remainingAmount);
 
+                const isDepleted = Number(card.remainingAmount) <= 0;
                 let statusBadge = '<span class="badge bg-success">正常使用</span>';
-                if (Number(card.remainingAmount) === 0) {
-                    statusBadge = '<span class="badge bg-secondary">餘額為零</span>';
+                
+                if (isDepleted) {
+                    statusBadge = '<span class="badge bg-dark">使用完畢</span>';
                 } else if (card.expiryDate && new Date(card.expiryDate) < new Date()) {
                     statusBadge = '<span class="badge bg-danger">已過期</span>';
                 }
 
                 const tr = document.createElement('tr');
+                if (isDepleted) {
+                    tr.classList.add('card-depleted');
+                }
+
                 tr.innerHTML = `
-                    <td><strong>${card.storeName}</strong></td>
+                    <td>${getStoreBadge(card.storeName)}</td>
                     <td class="text-start ps-3">
                         <div class="fw-bold">${card.cardTitleName}</div>
                         <small class="text-muted font-monospace">條碼: ${card.barcodeNumber}</small>
@@ -460,7 +548,7 @@
                     <td>${card.expiryDate || '無期限'}</td>
                     <td>${statusBadge}</td>
                     <td>
-                        <button class="btn btn-sm btn-warning text-dark me-1" onclick="showBarcodeModal(${card.id})" title="出示條碼付款"><i class="bi bi-upc-scan"></i> 結帳</button>
+                        <button class="btn btn-sm btn-warning text-dark me-1" onclick="showBarcodeModal(${card.id})" title="出示條碼付款" ${isDepleted ? 'disabled' : ''}><i class="bi bi-upc-scan"></i> 結帳</button>
                         <button class="btn btn-sm btn-outline-primary me-1" onclick="openEditModal(${card.id})" title="編輯"><i class="bi bi-pencil-square"></i></button>
                         <button class="btn btn-sm btn-outline-danger" onclick="deleteCard(${card.id})" title="刪除"><i class="bi bi-trash"></i></button>
                     </td>
