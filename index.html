@@ -3,206 +3,384 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>禮券管理系統</title>
-  <!-- 引入 QuaggaJS 用於相機即時掃描一維條碼 -->
-  <script src="https://cdn.jsdelivr.net/npm/quagga@0.12.10/dist/quagga.min.js"></script>
+  <title>商品卡管理系統</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- JsBarcode library for rendering 1D barcodes -->
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      max-width: 600px;
-      margin: 20px auto;
-      padding: 0 15px;
-      color: #333;
-    }
-    .form-group {
-      margin-bottom: 20px;
-    }
-    label {
-      display: block;
-      margin-bottom: 8px;
-      font-weight: bold;
-    }
-    input[type="text"] {
-      width: 100%;
-      padding: 10px;
-      box-sizing: border-box;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      font-size: 16px;
-    }
-    .scanner-actions {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 10px;
-    }
-    .btn {
-      padding: 10px 16px;
-      border: none;
-      border-radius: 4px;
-      font-size: 15px;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .btn-primary { background-color: #007bff; color: white; }
-    .btn-secondary { background-color: #6c757d; color: white; }
-    .btn-submit { background-color: #28a745; color: white; width: 100%; font-size: 18px; }
-    
-    /* 相機預覽區域樣式 */
-    #interactive.viewport {
-      position: relative;
-      width: 100%;
-      height: 250px;
-      overflow: hidden;
-      border: 2px dashed #007bff;
-      border-radius: 6px;
-      background: #000;
-    }
-    #interactive.viewport canvas, #interactive.viewport video {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-    .scan-status {
-      font-size: 14px;
-      color: #28a745;
-      margin-top: 5px;
-      font-weight: bold;
-    }
+    /* Prevent image blur during barcode rendering */
+    svg { image-rendering: pixelated; }
   </style>
 </head>
-<body>
+<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col font-sans">
 
-  <h2>新增禮券資料</h2>
+  <!-- Header & Total Summary Bar -->
+  <header class="bg-indigo-700 text-white shadow-md sticky top-0 z-30">
+    <div class="max-w-4xl mx-auto px-4 py-4 flex flex-col sm:flex-row justify-between items-center gap-3">
+      <div class="flex items-center space-x-3">
+        <i class="fa-solid fa-wallet text-2xl text-indigo-200"></i>
+        <div>
+          <h1 class="text-xl font-bold tracking-wide">商品卡數位管家</h1>
+          <p class="text-xs text-indigo-200">即時掃描 · 智慧分類 · 結帳扣款</p>
+        </div>
+      </div>
+      <!-- Total Balance Display -->
+      <div class="bg-indigo-800/80 border border-indigo-500/30 rounded-xl px-5 py-2 text-right w-full sm:w-auto flex justify-between sm:block">
+        <span class="text-xs text-indigo-200 block sm:inline">目前有效卡總額</span>
+        <span id="total-balance" class="text-2xl font-extrabold text-amber-300 ml-2">NT$ 0</span>
+      </div>
+    </div>
+  </header>
 
-  <form id="card-form">
-    
-    <!-- 1. 必填項目範例 (例如名稱) -->
-    <div class="form-group">
-      <label for="card-name">禮券名稱：</label>
-      <input type="text" id="card-name" required placeholder="請輸入禮券名稱">
+  <!-- Main Container -->
+  <main class="max-w-4xl mx-auto px-4 py-6 flex-1 w-full">
+
+    <!-- Action Toolbar: Scan & Import -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+      <button onclick="openScanModal('camera')" class="bg-indigo-600 hover:bg-indigo-700 text-white py-3.5 px-4 rounded-xl shadow-sm flex items-center justify-center space-x-2 font-medium transition active:scale-95">
+        <i class="fa-solid fa-camera text-lg"></i>
+        <span>開啟相機掃描條碼</span>
+      </button>
+      <button onclick="triggerFileInput()" class="bg-slate-800 hover:bg-slate-900 text-white py-3.5 px-4 rounded-xl shadow-sm flex items-center justify-center space-x-2 font-medium transition active:scale-95">
+        <i class="fa-solid fa-file-image text-lg"></i>
+        <span>照片批次匯入商品卡</span>
+      </button>
+      <!-- Hidden File Input for Batch Import -->
+      <input type="file" id="batch-file-input" accept="image/*" multiple class="hidden" onchange="handleBatchImport(event)">
     </div>
 
-    <!-- 2. 主要功能：相機 / 照片掃描條碼 -->
-    <div class="form-group">
-      <label>一維條碼獲取（主要）：</label>
-      <div class="scanner-actions">
-        <button type="button" id="start-scan-btn" class="btn btn-primary">📷 相機掃描</button>
-        
-        <label class="btn btn-secondary">
-          🖼️ 照片上傳
-          <input type="file" id="barcode-file-input" accept="image/*" capture="environment" style="display:none;">
-        </label>
+    <!-- Category Filter Tabs -->
+    <div class="flex items-center space-x-2 overflow-x-auto pb-3 mb-4 scrollbar-none">
+      <button onclick="setFilter('all')" id="tab-all" class="tab-btn px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition bg-indigo-600 text-white shadow-sm">
+        全部類別
+      </button>
+      <button onclick="setFilter('7-11')" id="tab-7-11" class="tab-btn px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition bg-white text-slate-600 border border-slate-200 hover:bg-slate-50">
+        7-ELEVEN
+      </button>
+      <button onclick="setFilter('FamilyMart')" id="tab-FamilyMart" class="tab-btn px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition bg-white text-slate-600 border border-slate-200 hover:bg-slate-50">
+        全家 FamilyMart
+      </button>
+      <button onclick="setFilter('Hi-Life')" id="tab-Hi-Life" class="tab-btn px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition bg-white text-slate-600 border border-slate-200 hover:bg-slate-50">
+        萊爾富 Hi-Life
+      </button>
+      <button onclick="setFilter('OKMart')" id="tab-OKMart" class="tab-btn px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition bg-white text-slate-600 border border-slate-200 hover:bg-slate-50">
+        OK Mart
+      </button>
+    </div>
+
+    <!-- Card Grid Container -->
+    <div id="card-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <!-- Cards rendered via JS -->
+    </div>
+
+    <!-- Empty State -->
+    <div id="empty-state" class="hidden flex-col items-center justify-center py-16 text-slate-400">
+      <i class="fa-solid fa-credit-card text-5xl mb-3"></i>
+      <p class="text-base font-medium">尚無相關商品卡記錄</p>
+      <p class="text-xs text-slate-400 mt-1">點擊上方按鈕開始掃描或匯入</p>
+    </div>
+  </main>
+
+  <!-- Checkout / Pay Modal -->
+  <div id="pay-modal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl relative animate-in fade-in zoom-in duration-200">
+      <button onclick="closeModal('pay-modal')" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1">
+        <i class="fa-solid fa-xmark text-xl"></i>
+      </button>
+
+      <div class="text-center">
+        <span id="modal-store-badge" class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider text-white inline-block mb-2">7-ELEVEN</span>
+        <h3 class="text-lg font-bold text-slate-800">出示條碼結帳</h3>
+        <p class="text-xs text-slate-500 mt-0.5">請將條碼對準超商刷卡機</p>
       </div>
 
-      <!-- 相機預覽畫面 -->
-      <div id="interactive" class="viewport" style="display: none;"></div>
-      <div id="scan-message" class="scan-status"></div>
+      <!-- Large Barcode Container -->
+      <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 my-4 flex flex-col items-center justify-center">
+        <svg id="pay-barcode" class="w-full h-24 max-w-xs"></svg>
+        <span id="pay-card-num" class="text-sm font-mono tracking-widest text-slate-600 mt-2">7110-1234-5678</span>
+      </div>
+
+      <!-- Current Balance Info & Quick Deduct -->
+      <div class="space-y-4">
+        <div class="flex justify-between items-center text-sm font-medium bg-indigo-50/60 p-3 rounded-lg border border-indigo-100">
+          <span class="text-slate-600">卡片目前餘額</span>
+          <span id="pay-modal-balance" class="text-lg font-bold text-indigo-700">NT$ 500</span>
+        </div>
+
+        <form onsubmit="handleCheckout(event)" class="space-y-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">輸入本次消費扣款金額 (NT$)</label>
+            <div class="relative">
+              <input type="number" id="deduct-amount" min="1" required placeholder="例如：45" class="w-full pl-8 pr-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none font-semibold">
+              <span class="absolute left-3 top-2.5 text-slate-400">$</span>
+            </div>
+          </div>
+          <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-lg font-bold shadow-md transition active:scale-95 flex items-center justify-center space-x-2">
+            <i class="fa-solid fa-check"></i>
+            <span>完成扣款並更新餘額</span>
+          </button>
+        </form>
+      </div>
     </div>
+  </div>
 
-    <!-- 3. 次要功能：手動輸入條碼（已設為非必填） -->
-    <div class="form-group">
-      <label for="barcode">條碼內容（選填）：</label>
-      <!-- 注意：已移除 required 屬性 -->
-      <input type="text" id="barcode" name="barcode" placeholder="自動獲取，或於掃描失敗時手動輸入">
+  <!-- Camera / Scan Simulation Modal -->
+  <div id="scan-modal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl relative text-center">
+      <button onclick="closeModal('scan-modal')" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1">
+        <i class="fa-solid fa-xmark text-xl"></i>
+      </button>
+
+      <div class="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-3 text-xl">
+        <i class="fa-solid fa-barcode"></i>
+      </div>
+      <h3 class="text-lg font-bold text-slate-800 mb-1">相機條碼掃描</h3>
+      <p class="text-xs text-slate-500 mb-4">將超商商品卡一維條碼置於框內即可自動識別</p>
+
+      <!-- Simulated Viewfinder -->
+      <div class="relative bg-slate-900 rounded-xl h-48 flex items-center justify-center overflow-hidden border-2 border-indigo-500/50 mb-4">
+        <div class="absolute inset-x-8 border-t-2 border-red-500 animate-pulse shadow-lg"></div>
+        <p class="text-xs text-slate-400 z-10 bg-slate-900/80 px-3 py-1 rounded">尋找一維條碼中...</p>
+      </div>
+
+      <button onclick="simulateCameraScanSuccess()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-lg font-medium text-sm transition">
+        模擬成功掃描卡片
+      </button>
     </div>
+  </div>
 
-    <button type="submit" class="btn btn-submit">儲存禮券</button>
-
-  </form>
-
+  <!-- JavaScript Application Logic -->
   <script>
-    const barcodeInput = document.getElementById('barcode');
-    const scanMessage = document.getElementById('scan-message');
-    const viewport = document.getElementById('interactive');
+    // --- Initial State / Mock Data ---
+    let cards = [
+      { id: '1', store: '7-11', code: '7110982341', balance: 350, date: '2026-03-10' },
+      { id: '2', store: 'FamilyMart', code: '5900128473', balance: 120, date: '2026-03-12' },
+      { id: '3', store: 'Hi-Life', code: '4710382910', balance: 0, date: '2026-02-28' },
+      { id: '4', store: 'OKMart', code: '4719001122', balance: 200, date: '2026-03-15' }
+    ];
 
-    // 填入條碼結果並提醒用戶
-    function setBarcodeResult(code) {
-      barcodeInput.value = code;
-      scanMessage.textContent = `✓ 已成功識別條碼：${code}`;
+    let currentFilter = 'all';
+    let selectedCardId = null;
+
+    // --- Store Theme Configurations ---
+    const storeConfigs = {
+      '7-11': { name: '7-ELEVEN', bg: 'bg-emerald-700', text: 'text-emerald-700', border: 'border-emerald-600', badge: 'bg-emerald-600' },
+      'FamilyMart': { name: '全家 FamilyMart', bg: 'bg-blue-600', text: 'text-blue-600', border: 'border-blue-500', badge: 'bg-blue-600' },
+      'Hi-Life': { name: '萊爾富 Hi-Life', bg: 'bg-red-600', text: 'text-red-600', border: 'border-red-500', badge: 'bg-red-600' },
+      'OKMart': { name: 'OK Mart', bg: 'bg-rose-700', text: 'text-rose-700', border: 'border-rose-600', badge: 'bg-rose-700' }
+    };
+
+    // --- Initialization ---
+    document.addEventListener('DOMContentLoaded', () => {
+      renderCards();
+    });
+
+    // --- Core Render Function ---
+    function renderCards() {
+      const grid = document.getElementById('card-grid');
+      const emptyState = document.getElementById('empty-state');
+      grid.innerHTML = '';
+
+      // Filter logic
+      const filtered = cards.filter(c => currentFilter === 'all' || c.store === currentFilter);
+
+      if (filtered.length === 0) {
+        emptyState.classList.remove('hidden');
+        emptyState.classList.add('flex');
+      } else {
+        emptyState.classList.add('hidden');
+        emptyState.classList.remove('flex');
+      }
+
+      filtered.forEach(card => {
+        const isDepleted = card.balance <= 0;
+        const config = storeConfigs[card.store] || storeConfigs['7-11'];
+
+        // Card Container HTML
+        const cardEl = document.createElement('div');
+        cardEl.className = `bg-white rounded-2xl shadow-sm border ${isDepleted ? 'border-slate-300 grayscale opacity-75' : 'border-slate-200'} p-5 relative transition duration-200 hover:shadow-md flex flex-col justify-between overflow-hidden`;
+
+        cardEl.innerHTML = `
+          <div>
+            <!-- Top Card Header -->
+            <div class="flex justify-between items-start mb-3">
+              <span class="px-2.5 py-1 rounded-md text-xs font-bold text-white ${config.badge}">
+                ${config.name}
+              </span>
+              ${isDepleted ? 
+                `<span class="bg-slate-700 text-white text-xs px-2.5 py-0.5 rounded-full font-bold">已用完</span>` : 
+                `<span class="text-xs text-slate-400">匯入日期: ${card.date}</span>`
+              }
+            </div>
+
+            <!-- Barcode Display Area -->
+            <div class="bg-slate-50 border border-slate-100 rounded-xl p-3 my-2 flex flex-col items-center">
+              <svg id="barcode-${card.id}" class="w-full h-16"></svg>
+              <span class="text-xs font-mono text-slate-500 tracking-wider mt-1">${card.code}</span>
+            </div>
+          </div>
+
+          <!-- Balance & Action Footer -->
+          <div class="mt-4 pt-3 border-t border-slate-100 flex justify-between items-center">
+            <div>
+              <span class="text-xs text-slate-400 block">剩餘金額</span>
+              <span class="text-xl font-black ${isDepleted ? 'text-slate-500 line-through' : 'text-slate-800'}">
+                NT$ ${card.balance}
+              </span>
+            </div>
+            
+            <div class="flex space-x-2">
+              <button onclick="openPayModal('${card.id}')" ${isDepleted ? 'disabled' : ''} 
+                class="px-4 py-2 text-sm font-bold rounded-lg ${isDepleted ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm'} transition">
+                <i class="fa-solid fa-qrcode mr-1"></i> 結帳
+              </button>
+            </div>
+          </div>
+        `;
+
+        grid.appendChild(cardEl);
+
+        // Render 1D Barcode using JsBarcode
+        JsBarcode(`#barcode-${card.id}`, card.code, {
+          format: "CODE128",
+          height: 40,
+          displayValue: false,
+          margin: 0,
+          lineColor: isDepleted ? "#64748b" : "#0f172a"
+        });
+      });
+
+      calculateTotalBalance();
     }
 
-    // -------------------------------------------------------------
-    // 功能 1：照片上傳辨識 (使用瀏覽器原生 BarcodeDetector API)
-    // -------------------------------------------------------------
-    document.getElementById('barcode-file-input').addEventListener('change', async function(e) {
-      const file = e.target.files[0];
-      if (!file) return;
+    // --- Calculate Total Balance ---
+    function calculateTotalBalance() {
+      const total = cards
+        .filter(c => c.balance > 0)
+        .reduce((sum, c) => sum + c.balance, 0);
 
-      if ('BarcodeDetector' in window) {
-        try {
-          const barcodeDetector = new BarcodeDetector({
-            formats: ['code_128', 'code_39', 'ean_13', 'ean_8', 'upc_a', 'upc_e']
-          });
-          const imageBitmap = await createImageBitmap(file);
-          const barcodes = await barcodeDetector.detect(imageBitmap);
+      document.getElementById('total-balance').innerText = `NT$ ${total.toLocaleString()}`;
+    }
 
-          if (barcodes.length > 0) {
-            setBarcodeResult(barcodes[0].rawValue);
-          } else {
-            alert('無法從照片中辨識出一維條碼，請手動填寫或重新拍攝。');
-          }
-        } catch (err) {
-          console.error('照片解析錯誤:', err);
-          alert('解析照片失敗，請改用手動輸入。');
-        }
-      } else {
-        alert('您的瀏覽器不支援原生照片條碼辨識，請手動輸入條碼。');
+    // --- Category Filter Switcher ---
+    function setFilter(store) {
+      currentFilter = store;
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('bg-indigo-600', 'text-white', 'shadow-sm');
+        btn.classList.add('bg-white', 'text-slate-600', 'border', 'border-slate-200');
+      });
+
+      const activeBtn = document.getElementById(`tab-${store}`);
+      if (activeBtn) {
+        activeBtn.classList.remove('bg-white', 'text-slate-600', 'border', 'border-slate-200');
+        activeBtn.classList.add('bg-indigo-600', 'text-white', 'shadow-sm');
       }
-    });
 
-    // -------------------------------------------------------------
-    // 功能 2：相機即時鏡頭掃描 (使用 QuaggaJS)
-    // -------------------------------------------------------------
-    document.getElementById('start-scan-btn').addEventListener('click', function() {
-      viewport.style.display = 'block';
+      renderCards();
+    }
 
-      Quagga.init({
-        inputStream: {
-          name: "Live",
-          type: "LiveStream",
-          target: viewport,
-          constraints: {
-            facingMode: "environment" // 優先使用後置鏡頭
-          }
-        },
-        decoder: {
-          readers: ["code_128_reader", "ean_reader", "ean_8_reader", "code_39_reader", "upc_reader"]
-        }
-      }, function(err) {
-        if (err) {
-          console.error('相機開啟失敗:', err);
-          alert('無法開啟相機，請確認是否提供鏡頭權限。');
-          viewport.style.display = 'none';
-          return;
-        }
-        Quagga.start();
+    // --- Modal Logic ---
+    function openPayModal(id) {
+      selectedCardId = id;
+      const card = cards.find(c => c.id === id);
+      if (!card) return;
+
+      const config = storeConfigs[card.store];
+      const badge = document.getElementById('modal-store-badge');
+      badge.innerText = config.name;
+      badge.className = `px-3 py-1 rounded-full text-xs font-bold tracking-wider text-white inline-block mb-2 ${config.badge}`;
+
+      document.getElementById('pay-card-num').innerText = card.code;
+      document.getElementById('pay-modal-balance').innerText = `NT$ ${card.balance}`;
+      document.getElementById('deduct-amount').value = '';
+
+      // Render large modal barcode
+      JsBarcode("#pay-barcode", card.code, {
+        format: "CODE128",
+        height: 70,
+        displayValue: false,
+        margin: 0,
+        lineColor: "#0f172a"
       });
 
-      // 監聽掃描結果
-      Quagga.onDetected(function(result) {
-        if (result && result.codeResult) {
-          const code = result.codeResult.code;
-          setBarcodeResult(code);
-          Quagga.stop();
-          viewport.style.display = 'none';
-        }
-      });
-    });
+      document.getElementById('pay-modal').classList.remove('hidden');
+    }
 
-    // -------------------------------------------------------------
-    // 功能 3：表單提交邏輯（驗證）
-    // -------------------------------------------------------------
-    document.getElementById('card-form').addEventListener('submit', function(e) {
+    function closeModal(modalId) {
+      document.getElementById(modalId).classList.add('hidden');
+    }
+
+    // --- Handle Checkout & Balance Deduction ---
+    function handleCheckout(e) {
       e.preventDefault();
-      
-      const cardName = document.getElementById('card-name').value;
-      const barcode = barcodeInput.value; // 非必填，即使空白也能正常通過
+      const amount = parseInt(document.getElementById('deduct-amount').value, 10);
+      if (isNaN(amount) || amount <= 0) return;
 
-      alert(`表單提交成功！\n禮券名稱：${cardName}\n條碼：${barcode || '（未提供）'}`);
-    });
+      const card = cards.find(c => c.id === selectedCardId);
+      if (card) {
+        card.balance = Math.max(0, card.balance - amount);
+        renderCards();
+        closeModal('pay-modal');
+      }
+    }
+
+    // --- Barcode Auto-Classification Logic ---
+    function classifyStoreByBarcode(code) {
+      if (code.startsWith('711')) return '7-11';
+      if (code.startsWith('590')) return 'FamilyMart';
+      if (code.startsWith('4710')) return 'Hi-Life';
+      return 'OKMart'; // Default fallback classification
+    }
+
+    // --- Scanner & Batch Import Actions ---
+    function openScanModal() {
+      document.getElementById('scan-modal').classList.remove('hidden');
+    }
+
+    function simulateCameraScanSuccess() {
+      const mockCode = '711' + Math.floor(10000000 + Math.random() * 90000000);
+      const newCard = {
+        id: Date.now().toString(),
+        store: classifyStoreByBarcode(mockCode),
+        code: mockCode,
+        balance: 500,
+        date: new Date().toISOString().split('T')[0]
+      };
+
+      cards.unshift(newCard);
+      renderCards();
+      closeModal('scan-modal');
+    }
+
+    function triggerFileInput() {
+      document.getElementById('batch-file-input').click();
+    }
+
+    function handleBatchImport(e) {
+      const files = e.target.files;
+      if (!files || files.length === 0) return;
+
+      // Batch create sample cards for imported images
+      Array.from(files).forEach((file, index) => {
+        const prefixes = ['711', '590', '4710', '4719'];
+        const prefix = prefixes[index % prefixes.length];
+        const generatedCode = prefix + Math.floor(1000000 + Math.random() * 9000000);
+
+        cards.unshift({
+          id: (Date.now() + index).toString(),
+          store: classifyStoreByBarcode(generatedCode),
+          code: generatedCode,
+          balance: 200 + (index * 100),
+          date: new Date().toISOString().split('T')[0]
+        });
+      });
+
+      renderCards();
+      e.target.value = ''; // Reset input
+    }
   </script>
-
 </body>
 </html>
