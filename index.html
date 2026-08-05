@@ -1,423 +1,208 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>便捷商品卡管理系統</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- FontAwesome Ｉcons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- QuaggaJS for Barcode Scanner -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
-    <!-- Tesseract.js for OCR -->
-    <script src="https://unpkg.com/tesseract.js@v4.1.1/dist/tesseract.min.js"></script>
-    <!-- JsBarcode for rendering barcodes -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js"></script>
-    <style>
-        .grayscale-card {
-            filter: grayscale(100%);
-            opacity: 0.7;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>禮券管理系統</title>
+  <!-- 引入 QuaggaJS 用於相機即時掃描一維條碼 -->
+  <script src="https://cdn.jsdelivr.net/npm/quagga@0.12.10/dist/quagga.min.js"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      max-width: 600px;
+      margin: 20px auto;
+      padding: 0 15px;
+      color: #333;
+    }
+    .form-group {
+      margin-bottom: 20px;
+    }
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: bold;
+    }
+    input[type="text"] {
+      width: 100%;
+      padding: 10px;
+      box-sizing: border-box;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 16px;
+    }
+    .scanner-actions {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .btn {
+      padding: 10px 16px;
+      border: none;
+      border-radius: 4px;
+      font-size: 15px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .btn-primary { background-color: #007bff; color: white; }
+    .btn-secondary { background-color: #6c757d; color: white; }
+    .btn-submit { background-color: #28a745; color: white; width: 100%; font-size: 18px; }
+    
+    /* 相機預覽區域樣式 */
+    #interactive.viewport {
+      position: relative;
+      width: 100%;
+      height: 250px;
+      overflow: hidden;
+      border: 2px dashed #007bff;
+      border-radius: 6px;
+      background: #000;
+    }
+    #interactive.viewport canvas, #interactive.viewport video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .scan-status {
+      font-size: 14px;
+      color: #28a745;
+      margin-top: 5px;
+      font-weight: bold;
+    }
+  </style>
 </head>
-<body class="bg-gray-50 text-gray-800 font-sans pb-24">
+<body>
 
-    <!-- 頂部導航列 -->
-    <header class="bg-white shadow sticky top-0 z-30">
-        <div class="max-w-md mx-auto px-4 py-4 flex justify-between items-center">
-            <h1 class="text-xl font-bold text-blue-600"><i class="fa-solid fa-wallet mr-2"></i>商品卡管家</h1>
-            <button onclick="openAddModal()" class="bg-blue-600 text-white px-4 py-2 rounded-full text-sm font-semibold shadow hover:bg-blue-700 transition">
-                <i class="fa-solid fa-plus mr-1"></i> 新增卡片
-            </button>
-        </div>
-    </header>
+  <h2>新增禮券資料</h2>
 
-    <!-- 主要內容區 -->
-    <main class="max-w-md mx-auto px-4 mt-4">
-        <!-- 搜尋與篩選 -->
-        <div class="mb-4 flex gap-2">
-            <div class="relative flex-1">
-                <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400"><i class="fa-solid fa-search"></i></span>
-                <input type="text" id="searchInput" oninput="renderCards()" placeholder="搜尋商品名稱或超商..." class="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-            </div>
-        </div>
-
-        <!-- 商品卡列表 -->
-        <div id="cardList" class="space-y-3">
-            <!-- 動態生成 -->
-        </div>
-    </main>
-
-    <!-- 底部導航/快捷結帳 -->
-    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 py-3 px-6 max-w-md mx-auto flex justify-around items-center z-30 shadow-lg">
-        <button onclick="renderCards()" class="flex flex-col items-center text-blue-600 text-xs font-medium">
-            <i class="fa-solid fa-house text-lg mb-1"></i>首頁
-        </button>
-        <button onclick="openAddModal()" class="flex flex-col items-center text-gray-400 hover:text-blue-600 text-xs font-medium">
-            <i class="fa-solid fa-camera text-lg mb-1"></i>掃描/匯入
-        </button>
-    </nav>
-
-    <!-- 新增/編輯 Modal -->
-    <div id="cardModal" class="fixed inset-0 bg-black/50 hidden z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-        <div class="bg-white w-full max-w-md rounded-t-2xl sm:rounded-2xl max-h-[90vh] overflow-y-auto p-6 shadow-xl">
-            <div class="flex justify-between items-center mb-4">
-                <h3 id="modalTitle" class="text-lg font-bold">新增商品卡</h3>
-                <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 text-lg"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            
-            <form id="cardForm" onsubmit="saveCard(event)" class="space-y-4">
-                <input type="hidden" id="cardId">
-                
-                <div>
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">快速匯入 (相機掃描或相片批次)</label>
-                    <div class="grid grid-cols-2 gap-2">
-                        <button type="button" onclick="startScanner()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 px-3 rounded-xl text-xs font-medium flex items-center justify-center">
-                            <i class="fa-solid fa-barcode mr-1.5 text-blue-600"></i>掃描一維條碼
-                        </button>
-                        <label class="bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 px-3 rounded-xl text-xs font-medium flex items-center justify-center cursor-pointer">
-                            <i class="fa-solid fa-image mr-1.5 text-green-600"></i>照片辨識/批次
-                            <input type="file" id="imageInput" accept="image/*" multiple onchange="handleImageImport(event)" class="hidden">
-                        </label>
-                    </div>
-                </div>
-
-                <div>
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">超商來源 (自動/手動)</label>
-                    <select id="cardStore" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <option value="7-ELEVEN">7-ELEVEN</option>
-                        <option value="全家便利商店">全家便利商店</option>
-                        <option value="萊爾富">萊爾富</option>
-                        <option value="OK超商">OK超商</option>
-                        <option value="其他">其他</option>
-                    </select>
-                </div>
-
-                <div>
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">商品名稱</label>
-                    <input type="text" id="cardName" required placeholder="例如：中杯拿鐵" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-600 mb-1">目前餘額 (金額/點數)</label>
-                        <input type="number" id="cardBalance" required placeholder="例如：55" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-gray-600 mb-1">有效期限 (選填)</label>
-                        <input type="date" id="cardExpiry" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    </div>
-                </div>
-
-                <div>
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">一維條碼數字</label>
-                    <input type="text" id="cardBarcode" required placeholder="請輸入或掃描條碼" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                </div>
-
-                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl text-sm shadow transition">
-                    儲存商品卡
-                </button>
-            </form>
-        </div>
+  <form id="card-form">
+    
+    <!-- 1. 必填項目範例 (例如名稱) -->
+    <div class="form-group">
+      <label for="card-name">禮券名稱：</label>
+      <input type="text" id="card-name" required placeholder="請輸入禮券名稱">
     </div>
 
-    <!-- 掃描器 Modal -->
-    <div id="scannerModal" class="fixed inset-0 bg-black/80 hidden z-50 flex flex-col items-center justify-center p-4">
-        <div class="w-full max-w-md bg-black rounded-2xl overflow-hidden relative">
-            <div id="interactive" class="viewport w-full h-72 bg-gray-900 relative"></div>
-            <div class="p-4 bg-white flex justify-between items-center">
-                <span class="text-xs text-gray-500">請將條碼對準框內</span>
-                <button onclick="stopScanner()" class="bg-red-500 text-white px-4 py-1.5 rounded-lg text-xs font-medium">關閉掃描</button>
-            </div>
-        </div>
+    <!-- 2. 主要功能：相機 / 照片掃描條碼 -->
+    <div class="form-group">
+      <label>一維條碼獲取（主要）：</label>
+      <div class="scanner-actions">
+        <button type="button" id="start-scan-btn" class="btn btn-primary">📷 相機掃描</button>
+        
+        <label class="btn btn-secondary">
+          🖼️ 照片上傳
+          <input type="file" id="barcode-file-input" accept="image/*" capture="environment" style="display:none;">
+        </label>
+      </div>
+
+      <!-- 相機預覽畫面 -->
+      <div id="interactive" class="viewport" style="display: none;"></div>
+      <div id="scan-message" class="scan-status"></div>
     </div>
 
-    <!-- 結帳展示 Modal -->
-    <div id="checkoutModal" class="fixed inset-0 bg-black/60 hidden z-50 flex items-center justify-center p-4">
-        <div class="bg-white w-full max-w-sm rounded-2xl p-6 text-center shadow-2xl relative">
-            <button onclick="closeCheckout()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 text-lg"><i class="fa-solid fa-xmark"></i></button>
-            <span id="checkoutStoreBadge" class="inline-block bg-blue-100 text-blue-800 text-xs px-2.5 py-1 rounded-full font-semibold mb-2"></span>
-            <h3 id="checkoutName" class="text-lg font-bold text-gray-800 mb-1"></h3>
-            <p class="text-sm text-gray-500 mb-4">餘額：$<span id="checkoutBalance"></span></p>
-            
-            <!-- 條碼渲染區 -->
-            <div class="bg-gray-50 p-4 rounded-xl mb-4 flex flex-col items-center justify-center border border-gray-100">
-                <svg id="barcodeSvg"></svg>
-                <p id="barcodeText" class="text-xs text-gray-400 mt-2 tracking-widest font-mono"></p>
-            </div>
-
-            <!-- 扣款操作 -->
-            <div class="flex gap-2">
-                <button onclick="deductBalance(1)" class="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-2 rounded-xl text-xs font-semibold transition">扣除 1 元/份</button>
-                <button onclick="deductAll()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-xl text-xs font-semibold transition">歸零/用完</button>
-            </div>
-        </div>
+    <!-- 3. 次要功能：手動輸入條碼（已設為非必填） -->
+    <div class="form-group">
+      <label for="barcode">條碼內容（選填）：</label>
+      <!-- 注意：已移除 required 屬性 -->
+      <input type="text" id="barcode" name="barcode" placeholder="自動獲取，或於掃描失敗時手動輸入">
     </div>
 
-    <script>
-        // 資料結構初始化
-        let cards = JSON.parse(localStorage.getItem('my_store_cards')) || [
-            { id: '1', store: '7-ELEVEN', name: '特大杯拿鐵', balance: 55, expiry: '2026-06-30', barcode: '4710088432101' },
-            { id: '2', store: '全家便利商店', name: '私品茶霜淇淋', balance: 0, expiry: '2026-03-15', barcode: '4711234567890' }
-        ];
+    <button type="submit" class="btn btn-submit">儲存禮券</button>
 
-        let currentCheckoutId = null;
+  </form>
 
-        function saveToStorage() {
-            localStorage.setItem('my_store_cards', JSON.stringify(cards));
+  <script>
+    const barcodeInput = document.getElementById('barcode');
+    const scanMessage = document.getElementById('scan-message');
+    const viewport = document.getElementById('interactive');
+
+    // 填入條碼結果並提醒用戶
+    function setBarcodeResult(code) {
+      barcodeInput.value = code;
+      scanMessage.textContent = `✓ 已成功識別條碼：${code}`;
+    }
+
+    // -------------------------------------------------------------
+    // 功能 1：照片上傳辨識 (使用瀏覽器原生 BarcodeDetector API)
+    // -------------------------------------------------------------
+    document.getElementById('barcode-file-input').addEventListener('change', async function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      if ('BarcodeDetector' in window) {
+        try {
+          const barcodeDetector = new BarcodeDetector({
+            formats: ['code_128', 'code_39', 'ean_13', 'ean_8', 'upc_a', 'upc_e']
+          });
+          const imageBitmap = await createImageBitmap(file);
+          const barcodes = await barcodeDetector.detect(imageBitmap);
+
+          if (barcodes.length > 0) {
+            setBarcodeResult(barcodes[0].rawValue);
+          } else {
+            alert('無法從照片中辨識出一維條碼，請手動填寫或重新拍攝。');
+          }
+        } catch (err) {
+          console.error('照片解析錯誤:', err);
+          alert('解析照片失敗，請改用手動輸入。');
         }
+      } else {
+        alert('您的瀏覽器不支援原生照片條碼辨識，請手動輸入條碼。');
+      }
+    });
 
-        // 渲染列表 (包含快到期排序、餘額<=0灰階)
-        function renderCards() {
-            const listEl = document.getElementById('cardList');
-            const keyword = document.getElementById('searchInput').value.trim().toLowerCase();
-            listEl.innerHTML = '';
+    // -------------------------------------------------------------
+    // 功能 2：相機即時鏡頭掃描 (使用 QuaggaJS)
+    // -------------------------------------------------------------
+    document.getElementById('start-scan-btn').addEventListener('click', function() {
+      viewport.style.display = 'block';
 
-            // 排序邏輯：有效期限近的優先，其次為正常狀態
-            let sortedCards = [...cards].sort((a, b) => {
-                if (!a.expiry) return 1;
-                if (!b.expiry) return -1;
-                return new Date(a.expiry) - new Date(b.expiry);
-            });
-
-            // 搜尋過濾
-            const filtered = sortedCards.filter(c => 
-                c.name.toLowerCase().includes(keyword) || c.store.toLowerCase().includes(keyword)
-            );
-
-            if (filtered.length === 0) {
-                listEl.innerHTML = `<div class="text-center py-10 text-gray-400 text-sm">沒有找到符合的商品卡</div>`;
-                return;
-            }
-
-            filtered.forEach(card => {
-                const isDepleted = Number(card.balance) <= 0;
-                const cardHtml = `
-                    <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center justify-between transition hover:shadow-md ${isDepleted ? 'grayscale-card bg-gray-50' : ''}">
-                        <div class="flex-1 cursor-pointer" onclick="${isDepleted ? '' : `openCheckout('${card.id}')`}">
-                            <div class="flex items-center gap-2 mb-1">
-                                <span class="bg-blue-50 text-blue-700 text-[10px] font-bold px-2 py-0.5 rounded-md">${card.store}</span>
-                                ${card.expiry ? `<span class="text-[10px] text-gray-400"><i class="fa-regular fa-clock mr-1"></i>期限: ${card.expiry}</span>` : ''}
-                            </div>
-                            <h4 class="font-bold text-gray-800 text-sm">${card.name}</h4>
-                            <div class="mt-1 flex items-center justify-between">
-                                <span class="text-xs font-semibold ${isDepleted ? 'text-red-500 font-bold' : 'text-blue-600'}">
-                                    ${isDepleted ? '已使用完畢' : `餘額: $${card.balance}`}
-                                </span>
-                            </div>
-                        </div>
-                        <div class="flex items-center gap-1.5 ml-3">
-                            ${!isDepleted ? `
-                            <button onclick="openCheckout('${card.id}')" class="bg-blue-50 hover:bg-blue-100 text-blue-600 p-2.5 rounded-xl text-xs" title="結帳出示">
-                                <span class="text-xs font-bold mr-1">出示</span><i class="fa-solid fa-barcode"></i>
-                            </button>` : ''}
-                            <button onclick="openEditModal('${card.id}')" class="text-gray-400 hover:text-gray-600 p-2"><i class="fa-solid fa-pen"></i></button>
-                            <button onclick="deleteCard('${card.id}')" class="text-gray-300 hover:text-red-500 p-2"><i class="fa-solid fa-trash"></i></button>
-                        </div>
-                    </div>
-                `;
-                listEl.insertAdjacentHTML('beforeend', cardHtml);
-            });
+      Quagga.init({
+        inputStream: {
+          name: "Live",
+          type: "LiveStream",
+          target: viewport,
+          constraints: {
+            facingMode: "environment" // 優先使用後置鏡頭
+          }
+        },
+        decoder: {
+          readers: ["code_128_reader", "ean_reader", "ean_8_reader", "code_39_reader", "upc_reader"]
         }
-
-        // 開啟新增 Modal
-        function openAddModal() {
-            document.getElementById('modalTitle').innerText = '新增商品卡';
-            document.getElementById('cardForm').reset();
-            document.getElementById('cardId').value = '';
-            document.getElementById('cardModal').classList.remove('hidden');
+      }, function(err) {
+        if (err) {
+          console.error('相機開啟失敗:', err);
+          alert('無法開啟相機，請確認是否提供鏡頭權限。');
+          viewport.style.display = 'none';
+          return;
         }
+        Quagga.start();
+      });
 
-        // 開啟編輯 Modal
-        function openEditModal(id) {
-            const card = cards.find(c => c.id === id);
-            if (!card) return;
-            document.getElementById('modalTitle').innerText = '編輯商品卡';
-            document.getElementById('cardId').value = card.id;
-            document.getElementById('cardStore').value = card.store;
-            document.getElementById('cardName').value = card.name;
-            document.getElementById('cardBalance').value = card.balance;
-            document.getElementById('cardExpiry').value = card.expiry || '';
-            document.getElementById('cardBarcode').value = card.barcode;
-            document.getElementById('cardModal').classList.remove('hidden');
+      // 監聽掃描結果
+      Quagga.onDetected(function(result) {
+        if (result && result.codeResult) {
+          const code = result.codeResult.code;
+          setBarcodeResult(code);
+          Quagga.stop();
+          viewport.style.display = 'none';
         }
+      });
+    });
 
-        function closeModal() {
-            document.getElementById('cardModal').classList.add('hidden');
-        }
+    // -------------------------------------------------------------
+    // 功能 3：表單提交邏輯（驗證）
+    // -------------------------------------------------------------
+    document.getElementById('card-form').addEventListener('submit', function(e) {
+      e.preventDefault();
+      
+      const cardName = document.getElementById('card-name').value;
+      const barcode = barcodeInput.value; // 非必填，即使空白也能正常通過
 
-        // 儲存（新增或更新）
-        function saveCard(e) {
-            e.preventDefault();
-            const id = document.getElementById('cardId').value;
-            const store = document.getElementById('cardStore').value;
-            const name = document.getElementById('cardName').value;
-            const balance = document.getElementById('cardBalance').value;
-            const expiry = document.getElementById('cardExpiry').value;
-            const barcode = document.getElementById('cardBarcode').value;
+      alert(`表單提交成功！\n禮券名稱：${cardName}\n條碼：${barcode || '（未提供）'}`);
+    });
+  </script>
 
-            if (id) {
-                const card = cards.find(c => c.id === id);
-                if (card) {
-                    card.store = store;
-                    card.name = name;
-                    card.balance = balance;
-                    card.expiry = expiry;
-                    card.barcode = barcode;
-                }
-            } else {
-                const newCard = {
-                    id: Date.now().toString(),
-                    store, name, balance, expiry, barcode
-                };
-                cards.push(newCard);
-            }
-
-            saveToStorage();
-            closeModal();
-            renderCards();
-        }
-
-        function deleteCard(id) {
-            if (confirm('確定要刪除這張商品卡嗎？')) {
-                cards = cards.filter(c => c.id !== id);
-                saveToStorage();
-                renderCards();
-            }
-        }
-
-        // 結帳出示畫面
-        function openCheckout(id) {
-            const card = cards.find(c => c.id === id);
-            if (!card) return;
-            currentCheckoutId = id;
-            document.getElementById('checkoutStoreBadge').innerText = card.store;
-            document.getElementById('checkoutName').innerText = card.name;
-            document.getElementById('checkoutBalance').innerText = card.balance;
-            document.getElementById('barcodeText').innerText = card.barcode;
-            
-            // 繪製一維條碼
-            try {
-                JsBarcode("#barcodeSvg", card.barcode, {
-                    format: "CODE128",
-                    lineColor: "#000",
-                    width: 2,
-                    height: 60,
-                    displayValue: false
-                });
-            } catch (err) {
-                console.error("條碼生成失敗", err);
-            }
-
-            document.getElementById('checkoutModal').classList.remove('hidden');
-        }
-
-        function closeCheckout() {
-            document.getElementById('checkoutModal').classList.add('hidden');
-            renderCards();
-        }
-
-        function deductBalance(amount) {
-            const card = cards.find(c => c.id === currentCheckoutId);
-            if (!card) return;
-            card.balance = Math.max(0, Number(card.balance) - amount);
-            saveToStorage();
-            document.getElementById('checkoutBalance').innerText = card.balance;
-            if (card.balance <= 0) {
-                alert('商品卡餘額已歸零！');
-                closeCheckout();
-            }
-        }
-
-        function deductAll() {
-            const card = cards.find(c => c.id === currentCheckoutId);
-            if (!card) return;
-            card.balance = 0;
-            saveToStorage();
-            closeCheckout();
-        }
-
-        // 智慧辨識超商與內容 (OCR 照片匯入)
-        async function handleImageImport(e) {
-            const files = e.target.files;
-            if (!files || files.length === 0) return;
-
-            // 支援批次
-            for (let file of files) {
-                try {
-                    // 使用 Tesseract 進行 OCR
-                    const result = await Tesseract.recognize(file, 'chi_tra+eng', {
-                        logger: m => console.log(m)
-                    });
-                    const text = result.data.text;
-                    parseCardText(text);
-                } catch (err) {
-                    console.error("OCR 識別失敗", err);
-                }
-            }
-            alert('照片批次匯入與辨識完成！');
-            renderCards();
-        }
-
-        // 自動解析文字中的超商、金額
-        function parseCardText(text) {
-            let store = "其他";
-            if (text.includes("7-ELEVEN") || text.includes("統一超商") || text.includes("7-11")) store = "7-ELEVEN";
-            else if (text.includes("全家") || text.includes("FamilyMart")) store = "全家便利商店";
-            else if (text.includes("萊爾富") || text.includes("Hi-Life")) store = "萊爾富";
-            else if (text.includes("OK") || text.includes("OK超商")) store = "OK超商";
-
-            // 嘗試尋找金額數字
-            let balanceMatch = text.match(/\$\s*(\d+)/) || text.match(/餘額[:\s]*(\d+)/) || text.match(/(\d+)\s*元/);
-            let balance = balanceMatch ? balanceMatch[1] : 100; // 預設或手動
-
-            let newCard = {
-                id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
-                store: store,
-                name: "匯入商品卡 (" + store + ")",
-                balance: balance,
-                expiry: "",
-                barcode: "471" + Math.floor(Math.random() * 1000000000) // 模擬條碼若未讀到
-            };
-            cards.push(newCard);
-            saveToStorage();
-        }
-
-        // 相機一維條碼掃描 (QuaggaJS)
-        function startScanner() {
-            closeModal();
-            document.getElementById('scannerModal').classList.remove('hidden');
-            Quagga.init({
-                inputStream: {
-                    name: "Live",
-                    type: "LiveStream",
-                    target: document.querySelector('#interactive'),
-                    constraints: { facingMode: "environment" }
-                },
-                decoder: { readers: ["code_128_reader", "ean_reader", "ean_8_reader", "upc_reader"] }
-            }, function(err) {
-                if (err) { console.error(err); return; }
-                Quagga.start();
-            });
-
-            Quagga.onDetected(function(result) {
-                const code = result.codeResult.code;
-                if (code) {
-                    stopScanner();
-                    openAddModal();
-                    document.getElementById('cardBarcode').value = code;
-                }
-            });
-        }
-
-        function stopScanner() {
-            try { Quagga.stop(); } catch(e){}
-            document.getElementById('scannerModal').classList.add('hidden');
-        }
-
-        // 初始化載入
-        renderCards();
-    </script>
 </body>
 </html>
