@@ -15,8 +15,23 @@
     <style>
         body { background-color: #f8f9fa; }
         .card-summary { border-left: 5px solid #0d6efd; }
-        #videoContainer { max-width: 100%; max-height: 300px; display: none; }
-        video { width: 100%; border-radius: 8px; }
+        #videoContainer { max-width: 100%; max-height: 300px; display: none; position: relative; }
+        video { width: 100%; border-radius: 8px; object-fit: cover; }
+        .scanner-laser {
+            position: absolute;
+            top: 50%;
+            left: 10%;
+            right: 10%;
+            height: 2px;
+            background: red;
+            animation: scanning 1.5s infinite ease-in-out;
+            box-shadow: 0 0 4px red;
+        }
+        @keyframes scanning {
+            0% { top: 20%; }
+            50% { top: 80%; }
+            100% { top: 20%; }
+        }
     </style>
 </head>
 <body>
@@ -110,11 +125,12 @@
                         <!-- 相機掃描區塊 -->
                         <div class="mb-3 p-3 bg-light rounded border text-center">
                             <button type="button" class="btn btn-outline-dark btn-sm mb-2" onclick="startScanner()">
-                                <i class="bi bi-camera-fill"></i> 開啟相機掃描一維條碼
+                                <i class="bi bi-camera-fill"></i> 高速相機掃描一維條碼
                             </button>
                             <div id="videoContainer">
-                                <video id="interactive" class="viewport"></video>
-                                <p class="text-muted small mt-1">請將一維條碼對準鏡頭... (<a href="#" onclick="stopScanner(); return false;" class="text-danger">關閉相機</a>)</p>
+                                <video id="interactive" class="viewport" muted playsinline></video>
+                                <div class="scanner-laser"></div>
+                                <p class="text-muted small mt-1">請將一維條碼對準紅線... (<a href="#" onclick="stopScanner(); return false;" class="text-danger">關閉相機</a>)</p>
                             </div>
                         </div>
 
@@ -178,12 +194,16 @@
                     <hr class="my-4">
                     <!-- 快速扣款區 -->
                     <div class="text-start px-3">
-                        <label class="form-label fw-bold">店員刷完後，直接扣款：</label>
-                        <div class="input-group">
+                        <label class="form-label fw-bold">店員刷完後，自動計算扣款：</label>
+                        <div class="input-group mb-3">
                             <span class="input-group-text">$</span>
-                            <input type="number" id="quickDeductAmount" class="form-control" placeholder="輸入本次消費金額">
-                            <button class="btn btn-success" type="button" onclick="confirmDeduct()">確認扣款</button>
+                            <input type="number" id="quickDeductAmount" class="form-control" placeholder="輸入本次消費金額" oninput="previewAutoCalc(this)">
                         </div>
+                        <!-- 即時計算預覽提示 -->
+                        <div id="calcPreviewBox" class="alert alert-info py-2 mb-3" style="display: none; font-size: 0.95rem;">
+                            扣款後預估剩餘：<strong id="previewRemaining" class="text-success">$0</strong>
+                        </div>
+                        <button class="btn btn-success w-100" type="button" onclick="confirmDeduct()">確認扣款並更新餘額</button>
                     </div>
                 </div>
             </div>
@@ -228,29 +248,29 @@
             }
         }
 
-        // 開啟相機掃描一維條碼
+        // 高速與精確度優化的相機掃描
         async function startScanner() {
             const container = document.getElementById('videoContainer');
             container.style.display = 'block';
 
-            // 設定僅針對常見的一維條碼格式進行解碼以提升效能與準確率
-            const hints = new Map();
-            const formats = [
-                ZXing.BarcodeFormat.CODE_128,
-                ZXing.BarcodeFormat.CODE_39,
-                ZXing.BarcodeFormat.EAN_13,
-                ZXing.BarcodeFormat.EAN_8,
-                ZXing.BarcodeFormat.UPC_A,
-                ZXing.BarcodeFormat.UPC_E,
-                ZXing.BarcodeFormat.ITF
-            ];
-            hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
-
-            codeReader = new ZXing.BrowserBarcodeReader(hints);
+            if (!codeReader) {
+                const hints = new Map();
+                const formats = [
+                    ZXing.BarcodeFormat.CODE_128,
+                    ZXing.BarcodeFormat.CODE_39,
+                    ZXing.BarcodeFormat.EAN_13,
+                    ZXing.BarcodeFormat.EAN_8,
+                    ZXing.BarcodeFormat.UPC_A,
+                    ZXing.BarcodeFormat.UPC_E,
+                    ZXing.BarcodeFormat.ITF
+                ];
+                hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
+                hints.set(ZXing.DecodeHintType.TRY_HARDER, true); // 啟用深度解析提升辨識率
+                codeReader = new ZXing.BrowserBarcodeReader(hints);
+            }
             
             try {
                 const videoInputDevices = await codeReader.listVideoInputDevices();
-                // 優先選擇後鏡頭 (environment)
                 let selectedDeviceId = videoInputDevices[0]?.deviceId;
                 for (const device of videoInputDevices) {
                     if (/back|rear|environment/i.test(device.label)) {
@@ -259,11 +279,13 @@
                     }
                 }
 
+                // 採用連續解碼模式 (decodeFromVideoDevice)，速度最快
                 codeReader.decodeFromVideoDevice(selectedDeviceId, 'interactive', (result, err) => {
                     if (result) {
                         document.getElementById('barcodeNumber').value = result.text;
-                        alert('成功掃描一維條碼：' + result.text);
                         stopScanner();
+                        // 震動回饋 (支援的手機有效)
+                        if (navigator.vibrate) navigator.vibrate(100);
                     }
                 });
             } catch (err) {
@@ -275,7 +297,6 @@
         function stopScanner() {
             if (codeReader) {
                 codeReader.reset();
-                codeReader = null;
             }
             const container = document.getElementById('videoContainer');
             if (container) container.style.display = 'none';
@@ -289,8 +310,8 @@
             document.getElementById('barcodeCardInfo').innerText = `${card.storeName} - ${card.cardTitleName} (剩餘: $${card.remainingAmount})`;
             document.getElementById('barcodeTextDisplay').innerText = card.barcodeNumber;
             document.getElementById('quickDeductAmount').value = '';
+            document.getElementById('calcPreviewBox').style.display = 'none';
             
-            // 使用 JsBarcode 產生一維條碼 (預設 Code 128)
             try {
                 JsBarcode("#barcodeSvg", card.barcodeNumber, {
                     format: "CODE128",
@@ -304,6 +325,27 @@
             }
 
             barcodeModal.show();
+        }
+
+        // 自動即時計算剩餘金額預覽
+        function previewAutoCalc(el) {
+            const card = cards.find(c => c.id === currentDeductingId);
+            if (!card) return;
+
+            const deductVal = Number(el.value);
+            const previewBox = document.getElementById('calcPreviewBox');
+            const previewRemaining = document.getElementById('previewRemaining');
+
+            if (!el.value || deductVal <= 0) {
+                previewBox.style.display = 'none';
+                return;
+            }
+
+            let calculatedRem = card.remainingAmount - deductVal;
+            if (calculatedRem < 0) calculatedRem = 0;
+
+            previewRemaining.innerText = `$${calculatedRem.toLocaleString()}`;
+            previewBox.style.display = 'block';
         }
 
         // 確認扣款
@@ -326,7 +368,7 @@
             localStorage.setItem('convenience_store_cards_v2', JSON.stringify(cards));
             barcodeModal.hide();
             renderCards();
-            alert('扣款成功！餘額已更新。');
+            alert('扣款成功！剩餘金額已自動更新。');
         }
 
         function saveCard(e) {
