@@ -3,13 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>商品卡管理系統</title>
+    <title>智慧商品卡管理系統</title>
     <!-- 引入 Tailwind CSS 進行快速美化 -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- 引入 QuaggaJS 處理相機條碼掃描 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
     <!-- 引入 Tesseract.js 處理圖片文字辨識 -->
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <style>
+        /* 確保 QuaggaJS 內部視訊容器完美滿版，消除黑畫面 */
+        #interactive.viewport video, #interactive.viewport canvas {
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: cover;
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+    </style>
 </head>
 <body class="bg-gray-100 min-h-screen p-4 sm:p-6">
 
@@ -17,7 +28,7 @@
         <!-- 標題 -->
         <header class="bg-white shadow rounded-lg p-6 text-center">
             <h1 class="text-2xl font-bold text-gray-800">💳 智慧商品卡管理系統</h1>
-            <p class="text-sm text-gray-500 mt-1">支援相機掃描、批次圖片匯入與自動金額辨識</p>
+            <p class="text-sm text-gray-500 mt-1">支援相機掃描、批次圖片匯入、金額辨識與快速出示結帳</p>
         </header>
 
         <!-- 操作面板 -->
@@ -27,7 +38,7 @@
             <div class="bg-white shadow rounded-lg p-6 flex flex-col items-center">
                 <h2 class="text-lg font-semibold text-gray-700 mb-3">📷 相機掃描條碼</h2>
                 <div id="interactive" class="viewport w-full h-48 bg-black rounded relative overflow-hidden flex items-center justify-center">
-                    <span class="text-white text-sm absolute">相機未啟動</span>
+                    <span class="text-white text-sm absolute z-10">相機未啟動</span>
                 </div>
                 <div class="mt-4 flex gap-2 w-full">
                     <button onclick="startScanner()" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded transition">啟動相機</button>
@@ -63,6 +74,16 @@
                 <input type="text" id="cardBarcode" placeholder="條碼編號" class="border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <input type="number" id="cardAmount" placeholder="金額 (NT$)" class="border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
             </div>
+            
+            <!-- 快速金額選擇列 (若辨識不出時可快速選取) -->
+            <div class="mt-3 flex items-center gap-2 flex-wrap text-sm">
+                <span class="text-gray-500 text-xs">快速指定金額：</span>
+                <button onclick="setQuickAmount(35)" class="bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded text-xs border">35元</button>
+                <button onclick="setQuickAmount(50)" class="bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded text-xs border">50元</button>
+                <button onclick="setQuickAmount(100)" class="bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded text-xs border">100元</button>
+                <button onclick="setQuickAmount('')" class="text-gray-400 hover:text-gray-600 text-xs underline ml-auto">清除金額</button>
+            </div>
+
             <button onclick="saveCard()" class="mt-4 bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-6 rounded transition text-sm">儲存卡片</button>
         </div>
 
@@ -78,7 +99,7 @@
                         <tr class="bg-gray-100 text-gray-600 text-sm">
                             <th class="p-3 border-b">名稱</th>
                             <th class="p-3 border-b">條碼 / 特徵</th>
-                            <th class="p-3 border-b">金額</th>
+                            <th class="p-3 border-b">餘額 / 狀態</th>
                             <th class="p-3 border-b text-center">操作</th>
                         </tr>
                     </thead>
@@ -91,9 +112,28 @@
 
     </div>
 
+    <!-- 條碼出示 Modal 彈跳視窗 -->
+    <div id="barcodeModal" class="fixed inset-0 bg-black bg-opacity-60 hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-lg p-6 max-w-sm w-full text-center space-y-4 shadow-xl">
+            <h3 id="modalCardTitle" class="text-lg font-bold text-gray-800">商品卡條碼</h3>
+            <div class="bg-gray-50 border p-4 rounded flex flex-col items-center justify-center space-y-2">
+                <!-- 模擬條碼圖示呈現 (條紋樣式與文字) -->
+                <div id="modalBarcodeDisplay" class="font-mono tracking-widest text-2xl font-black bg-white px-4 py-3 border rounded w-full text-gray-900 shadow-inner">
+                    123456789
+                </div>
+                <p class="text-xs text-gray-500">請將此條碼出示給店員掃描</p>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="deductCardAmount()" class="flex-1 bg-amber-500 hover:bg-amber-600 text-white py-2 rounded text-sm transition">扣款 / 使用結帳</button>
+                <button onclick="closeBarcodeModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 py-2 rounded text-sm transition">關閉</button>
+            </div>
+        </div>
+    </div>
+
     <!-- JavaScript 邏輯實作 -->
     <script>
         let cards = JSON.parse(localStorage.getItem('gift_cards')) || [];
+        let currentActiveIndex = null; // 目前打開 Modal 的卡片索引
 
         // 初始化渲染
         window.onload = function() {
@@ -104,6 +144,11 @@
         function saveData() {
             localStorage.setItem('gift_cards', JSON.stringify(cards));
             renderTable();
+        }
+
+        // 快速指定金額
+        function setQuickAmount(val) {
+            document.getElementById('cardAmount').value = val;
         }
 
         // 渲染表格
@@ -117,13 +162,27 @@
             }
 
             cards.forEach((card, index) => {
+                const amount = card.amount !== undefined ? card.amount : 0;
+                const isDepleted = amount <= 0;
+
+                // 根據狀態套用樣式：如果餘額 <= 0 則呈現灰階、半透明
+                const rowClass = isDepleted 
+                    ? "bg-gray-200 opacity-60 text-gray-500 border-b" 
+                    : "hover:bg-gray-50 border-b";
+
                 tbody.innerHTML += `
-                    <tr class="hover:bg-gray-50 border-b">
-                        <td class="p-3">${card.name || '未命名商品卡'}</td>
+                    <tr class="${rowClass}">
+                        <td class="p-3">
+                            ${card.name || '未命名商品卡'}
+                            ${isDepleted ? '<span class="ml-2 text-xs bg-gray-400 text-white px-1.5 py-0.5 rounded">使用完畢</span>' : ''}
+                        </td>
                         <td class="p-3 font-mono text-xs">${card.barcode}</td>
-                        <td class="p-3 font-semibold text-green-600">NT$ ${card.amount || 0}</td>
-                        <td class="p-3 text-center">
-                            <button onclick="deleteCard(${index})" class="text-red-500 hover:text-red-700 text-xs bg-red-50 px-2 py-1 rounded">刪除</button>
+                        <td class="p-3 font-semibold ${isDepleted ? 'text-gray-500' : 'text-green-600'}">
+                            NT$ ${amount}
+                        </td>
+                        <td class="p-3 text-center space-x-1">
+                            <button onclick="showBarcode(${index})" class="text-blue-600 hover:text-blue-800 text-xs bg-blue-50 px-2 py-1 rounded transition">出示條碼</button>
+                            <button onclick="deleteCard(${index})" class="text-red-500 hover:text-red-700 text-xs bg-red-50 px-2 py-1 rounded transition">刪除</button>
                         </td>
                     </tr>
                 `;
@@ -134,14 +193,17 @@
         function saveCard() {
             const name = document.getElementById('cardName').value.trim();
             const barcode = document.getElementById('cardBarcode').value.trim();
-            const amount = document.getElementById('cardAmount').value.trim();
+            const amountInput = document.getElementById('cardAmount').value.trim();
 
             if (!barcode) {
                 alert('請至少填寫條碼編號！');
                 return;
             }
 
-            cards.push({ name, barcode, amount: Number(amount) });
+            // 若金額未填，提供 35 / 50 / 100 / 手動輸入的提示或預設為 0
+            const amount = amountInput === '' ? 0 : Number(amountInput);
+
+            cards.push({ name, barcode, amount });
             saveData();
 
             // 清空輸入框
@@ -164,13 +226,56 @@
             }
         }
 
+        // --- 彈跳出示條碼與扣款機制 ---
+        function showBarcode(index) {
+            currentActiveIndex = index;
+            const card = cards[index];
+            document.getElementById('modalCardTitle').innerText = card.name || '商品卡條碼';
+            document.getElementById('modalBarcodeDisplay').innerText = card.barcode;
+            document.getElementById('barcodeModal').classList.remove('hidden');
+        }
+
+        function closeBarcodeModal() {
+            document.getElementById('barcodeModal').classList.add('hidden');
+            currentActiveIndex = null;
+        }
+
+        function deductCardAmount() {
+            if (currentActiveIndex === null) return;
+            const card = cards[currentActiveIndex];
+            
+            if (card.amount <= 0) {
+                alert('此商品卡餘額已歸零！');
+                return;
+            }
+
+            let deductVal = prompt(`目前餘額為 NT$ ${card.amount}，請輸入本次扣款金額 (或輸入整張扣除)：`, card.amount);
+            if (deductVal === null) return; // 取消
+
+            let amountToDeduct = Number(deductVal);
+            if (isNaN(amountToDeduct) || amountToDeduct <= 0) {
+                alert('請輸入有效的金額數字！');
+                return;
+            }
+
+            card.amount = Math.max(0, card.amount - amountToDeduct);
+            saveData();
+            showBarcode(currentActiveIndex); // 重新整理 Modal 畫面內容
+            if (card.amount === 0) {
+                alert('扣款成功，此商品卡已全數使用完畢！');
+            } else {
+                alert(`扣款成功！剩餘金額：NT$ ${card.amount}`);
+            }
+        }
+
         // --- 1. QuaggaJS 相機條碼掃描 ---
         function startScanner() {
+            const container = document.querySelector('#interactive');
             Quagga.init({
                 inputStream: {
                     name: "Live",
                     type: "LiveStream",
-                    target: document.querySelector('#interactive'),
+                    target: container,
                     constraints: {
                         facingMode: "environment" // 使用後置鏡頭
                     }
@@ -221,7 +326,6 @@
                 statusDiv.innerText = `正在辨識第 ${i + 1} / ${files.length} 張圖片...`;
 
                 try {
-                    // 使用 Tesseract 進行 OCR 辨識
                     const result = await Tesseract.recognize(
                         file,
                         'eng+chi_tra', // 支援英文與繁體中文
@@ -229,18 +333,15 @@
                     );
 
                     const text = result.data.text;
-                    
-                    // 自動解析金額：利用正規表達式尋找類似金額的數字（例如抓取「$100」、「NT100」、「元」前面的數字等）
                     const amount = extractAmount(text);
                     
-                    // 由於圖片可能包含多種雜訊，將檔名或部分特徵作為辨識標籤，條碼預設記錄檔名或提示
                     const cardName = file.name.substring(0, file.name.lastIndexOf('.')) || '匯入商品卡';
-                    const barcode = `IMG-${Date.now().toString().slice(-6)}-${i}`; // 給予一個基於圖片匯入的特徵碼
+                    const barcode = `IMG-${Date.now().toString().slice(-6)}-${i}`;
 
                     cards.push({
                         name: cardName,
                         barcode: barcode,
-                        amount: amount
+                        amount: amount // 若無法辨識會回傳 0，使用者後續可手動修改或點選
                     });
 
                 } catch (error) {
@@ -256,7 +357,6 @@
 
         // 自動辨識金額核心運算法則 (Regular Expression)
         function extractAmount(text) {
-            // 清理文字並尋找關鍵字（如 $, NT, 元）附近的數字
             const patterns = [
                 /(?:\$|NT\$|NT)\s*([0-9,]+)/i,
                 /([0-9,]+)\s*(?:元|塊)/
@@ -265,7 +365,6 @@
             for (let pattern of patterns) {
                 const match = text.match(pattern);
                 if (match && match[1]) {
-                    // 移除逗號並轉為數字
                     const cleanNum = Number(match[1].replace(/,/g, ''));
                     if (!isNaN(cleanNum) && cleanNum > 0 && cleanNum < 100000) {
                         return cleanNum;
@@ -273,14 +372,12 @@
                 }
             }
 
-            // 若無明確金額關鍵字，嘗試過濾出合理的獨立數字（如 100, 500, 1000 等常見面額）
             const numbers = text.match(/\b\d{2,5}\b/g);
             if (numbers && numbers.length > 0) {
-                // 回傳第一個符合的合理面額
                 return Number(numbers[0]);
             }
 
-            return 0; // 若無法辨識則預設為 0
+            return 0; // 若無法辨識金額，預設回傳 0（使用者可於列表中或手動表單調整）
         }
     </script>
 </body>
