@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>商品卡管理系統</title>
+    <title>超商商品卡管理系統</title>
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Bootstrap Icons -->
@@ -13,68 +13,67 @@
     <!-- ZXing 掃描庫 -->
     <script type="text/javascript" src="https://unpkg.com/@zxing/library@latest"></script>
     <style>
-        body { background-color: #f8f9fa; }
-        .card-summary { border-left: 5px solid #0d6efd; }
-        #videoContainer { max-width: 100%; height: 320px; display: none; position: relative; background: #000; border-radius: 8px; overflow: hidden; }
+        body { background-color: #f8f9fa; white-space: nowrap; }
+        .card-summary { border-left: 4px solid #0d6efd; }
+        #videoContainer { max-width: 100%; height: 280px; display: none; position: relative; background: #000; border-radius: 6px; overflow: hidden; }
         video { width: 100%; height: 100%; object-fit: cover; }
-        
         .scanner-frame {
-            position: absolute; top: 25%; bottom: 25%; left: 10%; right: 10%;
+            position: absolute; top: 20%; bottom: 20%; left: 10%; right: 10%;
             border: 2px solid #0d6efd; background-color: rgba(13, 110, 253, 0.05);
-            border-radius: 6px; z-index: 4; pointer-events: none;
-            box-shadow: 0 0 15px rgba(13, 110, 253, 0.5);
+            border-radius: 4px; z-index: 4; pointer-events: none;
         }
-        .scanner-frame::after {
-            content: ""; position: absolute; left: 0; right: 0; height: 2px;
-            background: #ff4d4d; box-shadow: 0 0 8px #ff4d4d;
-            animation: scanLine 2s infinite ease-in-out;
-        }
-        @keyframes scanLine {
-            0% { top: 0%; } 50% { top: 98%; } 100% { top: 0%; }
-        }
-        .barcode-box { background: #fff; padding: 15px; border-radius: 8px; display: inline-block; max-width: 100%; overflow-x: auto; }
-        .card-depleted { filter: grayscale(100%); opacity: 0.55; background-color: #e9ecef !important; }
+        .barcode-box { background: #fff; padding: 10px; border-radius: 6px; display: inline-block; max-width: 100%; overflow-x: auto; }
+        .card-depleted { filter: grayscale(100%); opacity: 0.5; background-color: #e9ecef !important; }
     </style>
 </head>
 <body>
 
-    <div class="container py-4">
-        <header class="pb-3 mb-4 border-bottom d-flex justify-content-between align-items-center">
-            <h1 class="h4 fw-bold text-primary mb-0"><i class="bi bi-wallet2"></i> 商品卡管理系統</h1>
-            <div class="d-flex gap-2">
-                <label class="btn btn-outline-primary btn-sm mb-0" style="cursor: pointer;">
-                    <i class="bi bi-images"></i> 相簿批量新增
+    <div class="container py-3">
+        <!-- 頂部標題與按鈕 -->
+        <header class="pb-2 mb-3 border-bottom d-flex justify-content-between align-items-center">
+            <h1 class="h5 fw-bold text-primary mb-0"><i class="bi bi-wallet2"></i> 商品卡管理</h1>
+            <div class="d-flex gap-1 align-items-center">
+                <select id="batchDefaultAmount" class="form-select form-select-sm text-nowrap" style="width: 110px;" onchange="toggleBatchCustom(this)">
+                    <option value="" selected disabled>批量預設金額</option>
+                    <option value="35">35元</option>
+                    <option value="50">50元</option>
+                    <option value="100">100元</option>
+                    <option value="custom">手動填入</option>
+                </select>
+                <input type="number" id="batchCustomInput" class="form-control form-control-sm text-nowrap" style="width: 80px; display: none;" placeholder="自訂金額">
+                <label class="btn btn-outline-primary btn-sm text-nowrap mb-0" style="cursor: pointer;">
+                    <i class="bi bi-images"></i> 批量相簿
                     <input type="file" id="batchImageInput" accept="image/*" multiple style="display: none;" onchange="handleBatchImages(event)">
                 </label>
-                <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#cardModal" onclick="openAddModal()">
-                    <i class="bi bi-plus-circle"></i> 新增商品卡
+                <button class="btn btn-success btn-sm text-nowrap" data-bs-toggle="modal" data-bs-target="#cardModal" onclick="openAddModal()">
+                    <i class="bi bi-plus-circle"></i> 新增
                 </button>
             </div>
         </header>
 
         <!-- 數據總覽 -->
-        <div class="row g-3 mb-4">
-            <div class="col-md-4">
+        <div class="row g-2 mb-3">
+            <div class="col-4">
                 <div class="card shadow-sm card-summary">
-                    <div class="card-body py-3">
-                        <h6 class="text-muted small mb-1">初始總面額</h6>
-                        <h4 class="fw-bold mb-0" id="totalInitial">$0</h4>
+                    <div class="card-body p-2 text-center">
+                        <div class="text-muted small">初始總面額</div>
+                        <div class="fw-bold fs-6" id="totalInitial">$0</div>
                     </div>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="card shadow-sm" style="border-left: 5px solid #198754;">
-                    <div class="card-body py-3">
-                        <h6 class="text-muted small mb-1">目前剩餘總額</h6>
-                        <h4 class="fw-bold text-success mb-0" id="totalRemaining">$0</h4>
+            <div class="col-4">
+                <div class="card shadow-sm" style="border-left: 4px solid #198754;">
+                    <div class="card-body p-2 text-center">
+                        <div class="text-muted small">剩餘總額</div>
+                        <div class="fw-bold fs-6 text-success" id="totalRemaining">$0</div>
                     </div>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="card shadow-sm" style="border-left: 5px solid #ffc107;">
-                    <div class="card-body py-3">
-                        <h6 class="text-muted small mb-1">已使用金額</h6>
-                        <h4 class="fw-bold text-secondary mb-0" id="totalUsed">$0</h4>
+            <div class="col-4">
+                <div class="card shadow-sm" style="border-left: 4px solid #ffc107;">
+                    <div class="card-body p-2 text-center">
+                        <div class="text-muted small">已用金額</div>
+                        <div class="fw-bold fs-6 text-secondary" id="totalUsed">$0</div>
                     </div>
                 </div>
             </div>
@@ -82,8 +81,8 @@
 
         <!-- 卡片列表區 -->
         <div class="card shadow-sm">
-            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
-                <h5 class="mb-0 fw-bold fs-6">我的商品卡清單</h5>
+            <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center">
+                <span class="fw-bold small">卡片清單</span>
                 <select id="filterStore" class="form-select form-select-sm w-auto" onchange="renderCards()">
                     <option value="">全部超商</option>
                     <option value="7-11">7-11</option>
@@ -95,14 +94,14 @@
             </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0 text-center">
+                    <table class="table table-hover align-middle mb-0 text-center small">
                         <thead class="table-light">
                             <tr>
                                 <th>超商</th>
-                                <th>卡片名稱 / 條碼</th>
-                                <th>原始面額</th>
-                                <th>剩餘金額</th>
-                                <th>有效期限</th>
+                                <th>名稱 / 條碼</th>
+                                <th>面額</th>
+                                <th>剩餘</th>
+                                <th>期限</th>
                                 <th>狀態</th>
                                 <th>操作</th>
                             </tr>
@@ -119,60 +118,75 @@
         <div class="modal-dialog">
             <div class="modal-content">
                 <form id="cardForm" onsubmit="saveCard(event)">
-                    <div class="modal-header">
-                        <h5 class="modal-title fs-5" id="modalTitle">新增商品卡</h5>
+                    <div class="modal-header py-2">
+                        <h5 class="modal-title fs-6 fw-bold" id="modalTitle">新增商品卡</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" onclick="stopScanner()"></button>
                     </div>
-                    <div class="modal-body">
+                    <div class="modal-body p-3">
                         <input type="hidden" id="cardId">
                         
-                        <div class="mb-3 p-3 bg-light rounded border text-center">
-                            <button type="button" class="btn btn-outline-dark btn-sm mb-2" onclick="startScanner()">
-                                <i class="bi bi-camera-fill"></i> 開啟高畫質對焦相機
-                            </button>
-                            <div id="videoContainer" class="mt-2">
+                        <div class="mb-2 p-2 bg-light rounded border text-center">
+                            <div class="d-flex justify-content-center align-items-center gap-2 mb-1">
+                                <button type="button" class="btn btn-outline-dark btn-sm text-nowrap" onclick="startScanner()">
+                                    <i class="bi bi-camera-fill"></i> 開啟相機掃描
+                                </button>
+                                <select id="scanDefaultAmount" class="form-select form-select-sm w-auto" onchange="toggleScanCustom(this)">
+                                    <option value="" selected disabled>金額設定</option>
+                                    <option value="35">35元</option>
+                                    <option value="50">50元</option>
+                                    <option value="100">100元</option>
+                                    <option value="custom">手動填入</option>
+                                </select>
+                                <input type="number" id="scanCustomInput" class="form-control form-control-sm" style="width: 80px; display: none;" placeholder="自訂金額">
+                            </div>
+                            <div id="videoContainer" class="mt-1">
                                 <video id="interactive" muted playsinline></video>
                                 <div class="scanner-frame"></div>
                             </div>
                             <div id="scannerTip" class="text-muted small mt-1" style="display: none;">
-                                請將條碼對準藍框中央... (<a href="#" onclick="stopScanner(); return false;" class="text-danger">關閉相機</a>)
+                                請將條碼對準框內 (<a href="#" onclick="stopScanner(); return false;" class="text-danger">關閉</a>)
                             </div>
                         </div>
 
-                        <div class="mb-3">
-                            <label class="form-label">超商平台</label>
-                            <select class="form-select" id="storeName" required>
-                                <option value="7-11">7-11 統一超商</option>
-                                <option value="全家">全家便利商店</option>
-                                <option value="萊爾富">萊爾富</option>
-                                <option value="OK超商">OK超商</option>
-                                <option value="其他">其他</option>
-                            </select>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">卡片名稱 / 備註</label>
-                            <input type="text" class="form-control" id="cardTitleName" placeholder="例如：商品卡A" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">條碼數字編號</label>
-                            <input type="text" class="form-control font-monospace" id="barcodeNumber" placeholder="請輸入或掃描條碼" required>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">原始面額 (NT$)</label>
-                                <input type="number" class="form-control" id="initialAmount" min="0" required oninput="syncRemaining(this)">
+                        <div class="row g-2 mb-2">
+                            <div class="col-6">
+                                <label class="form-label small mb-1">超商平台</label>
+                                <select class="form-select form-select-sm" id="storeName" required>
+                                    <option value="7-11">7-11 統一超商</option>
+                                    <option value="全家">全家便利商店</option>
+                                    <option value="萊爾富">萊爾富</option>
+                                    <option value="OK超商">OK超商</option>
+                                    <option value="其他">其他</option>
+                                </select>
                             </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">剩餘金額 (NT$)</label>
-                                <input type="number" class="form-control" id="remainingAmount" min="0" required>
+                            <div class="col-6">
+                                <label class="form-label small mb-1">卡片名稱 / 備註</label>
+                                <input type="text" class="form-control form-control-sm" id="cardTitleName" placeholder="例如：商品卡" required>
                             </div>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label">有效期限 (選填)</label>
-                            <input type="date" class="form-control" id="expiryDate">
+
+                        <div class="mb-2">
+                            <label class="form-label small mb-1">條碼數字編號</label>
+                            <input type="text" class="form-control form-control-sm font-monospace" id="barcodeNumber" placeholder="自動帶入或手動輸入" required>
+                        </div>
+
+                        <div class="row g-2 mb-2">
+                            <div class="col-6">
+                                <label class="form-label small mb-1">原始面額 ($)</label>
+                                <input type="number" class="form-control form-control-sm" id="initialAmount" min="0" required oninput="syncRemaining(this)">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small mb-1">剩餘金額 ($)</label>
+                                <input type="number" class="form-control form-control-sm" id="remainingAmount" min="0" required>
+                            </div>
+                        </div>
+
+                        <div class="mb-1">
+                            <label class="form-label small mb-1">有效期限 (選填)</label>
+                            <input type="date" class="form-control form-control-sm" id="expiryDate">
                         </div>
                     </div>
-                    <div class="modal-footer">
+                    <div class="modal-footer py-2">
                         <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal" onclick="stopScanner()">取消</button>
                         <button type="submit" class="btn btn-primary btn-sm">儲存</button>
                     </div>
@@ -181,31 +195,31 @@
         </div>
     </div>
 
-    <!-- 顯示條碼與快速扣款 Modal -->
+    <!-- 顯示條碼與扣款 Modal -->
     <div class="modal fade" id="barcodeModal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content text-center">
-                <div class="modal-header">
-                    <h5 class="modal-title fs-5">出示條碼付款</h5>
+                <div class="modal-header py-2">
+                    <h5 class="modal-title fs-6 fw-bold">出示條碼付款</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body py-4">
-                    <h5 id="barcodeCardInfo" class="text-primary mb-3"></h5>
+                <div class="modal-body p-3">
+                    <div id="barcodeCardInfo" class="text-primary fw-bold small mb-2"></div>
                     <div class="barcode-box border shadow-sm mb-2">
                         <svg id="barcodeSvg"></svg>
                     </div>
-                    <p id="barcodeTextDisplay" class="font-monospace text-muted mt-1 mb-0 fw-bold fs-5"></p>
-                    <hr class="my-3">
-                    <div class="text-start px-2">
-                        <label class="form-label fw-bold small">消費後自動扣款：</label>
-                        <div class="input-group mb-2">
+                    <div id="barcodeTextDisplay" class="font-monospace text-muted fw-bold small mb-2"></div>
+                    <hr class="my-2">
+                    <div class="text-start">
+                        <label class="form-label small fw-bold mb-1">消費扣款：</label>
+                        <div class="input-group input-group-sm mb-2">
                             <span class="input-group-text">$</span>
-                            <input type="number" id="quickDeductAmount" class="form-control" placeholder="輸入本次消費金額" oninput="previewAutoCalc(this)">
+                            <input type="number" id="quickDeductAmount" class="form-control" placeholder="輸入消費金額" oninput="previewAutoCalc(this)">
                         </div>
-                        <div id="calcPreviewBox" class="alert alert-info py-2 mb-3 small" style="display: none;">
-                            扣款後預估剩餘：<strong id="previewRemaining" class="text-success">$0</strong>
+                        <div id="calcPreviewBox" class="alert alert-info py-1 mb-2 small" style="display: none;">
+                            扣款後剩餘：<strong id="previewRemaining" class="text-success">$0</strong>
                         </div>
-                        <button class="btn btn-success w-100" type="button" onclick="confirmDeduct()">確認扣款並更新餘額</button>
+                        <button class="btn btn-success btn-sm w-100 text-nowrap" type="button" onclick="confirmDeduct()">確認扣款更新餘額</button>
                     </div>
                 </div>
             </div>
@@ -215,7 +229,7 @@
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        let cards = JSON.parse(localStorage.getItem('convenience_store_cards_v3')) || [];
+        let cards = JSON.parse(localStorage.getItem('convenience_store_cards_v5')) || [];
         const cardModal = new bootstrap.Modal(document.getElementById('cardModal'));
         const barcodeModal = new bootstrap.Modal(document.getElementById('barcodeModal'));
         let codeReader = null;
@@ -226,22 +240,60 @@
             return `<span class="badge bg-${map[store] || 'secondary'}">${store}</span>`;
         }
 
-        function parseAmount(text) {
-            if (!text) return 100;
-            if (text.includes('0500')) return 500;
-            if (text.includes('1000')) return 1000;
-            return 100;
-        }
-
         function getCodeReader() {
-            if (!codeReader) codeReader = new ZXing.BrowserBarcodeReader();
+            if (!codeReader) {
+                codeReader = new ZXing.BrowserMultiFormatReader();
+            }
             return codeReader;
         }
 
-        // 相簿批量匯入修正（加入畫布放大與對比預處理）
+        function toggleBatchCustom(select) {
+            const customInput = document.getElementById('batchCustomInput');
+            if (select.value === 'custom') {
+                customInput.style.display = 'inline-block';
+                customInput.focus();
+            } else {
+                customInput.style.display = 'none';
+                customInput.value = '';
+            }
+        }
+
+        function toggleScanCustom(select) {
+            const customInput = document.getElementById('scanCustomInput');
+            const initialInput = document.getElementById('initialAmount');
+            const remainingInput = document.getElementById('remainingAmount');
+            
+            if (select.value === 'custom') {
+                customInput.style.display = 'inline-block';
+                customInput.focus();
+                customInput.oninput = () => {
+                    initialInput.value = customInput.value;
+                    remainingInput.value = customInput.value;
+                };
+            } else {
+                customInput.style.display = 'none';
+                customInput.value = '';
+                if (select.value) {
+                    initialInput.value = select.value;
+                    remainingInput.value = select.value;
+                }
+            }
+        }
+
+        function getSelectedBatchAmount() {
+            const select = document.getElementById('batchDefaultAmount');
+            const customInput = document.getElementById('batchCustomInput');
+            if (select.value === 'custom') {
+                return Number(customInput.value) || 0;
+            }
+            return Number(select.value) || 0;
+        }
+
+        // 批量相簿圖片讀取
         async function handleBatchImages(event) {
             const files = event.target.files;
             if (!files.length) return;
+            const defaultAmt = getSelectedBatchAmount();
             const reader = getCodeReader();
             let success = 0, fail = 0;
 
@@ -250,14 +302,13 @@
                     const text = await decodeImageFile(file, reader);
                     if (text) {
                         const store = (text.startsWith('9') || text.startsWith('2') || text.length === 13) ? "全家" : "7-11";
-                        const amt = parseAmount(text);
                         cards.push({
                             id: Date.now() + Math.random(),
                             storeName: store,
-                            cardTitleName: `批量匯入 (${text.slice(-4)})`,
+                            cardTitleName: `相簿匯入 (${text.slice(-4)})`,
                             barcodeNumber: text,
-                            initialAmount: amt,
-                            remainingAmount: amt,
+                            initialAmount: defaultAmt,
+                            remainingAmount: defaultAmt,
                             expiryDate: ''
                         });
                         success++;
@@ -267,9 +318,9 @@
                 } catch { fail++; }
             }
 
-            localStorage.setItem('convenience_store_cards_v3', JSON.stringify(cards));
+            localStorage.setItem('convenience_store_cards_v5', JSON.stringify(cards));
             renderCards();
-            alert(`批量匯入完成！成功解析 ${success} 張，失敗 ${fail} 張。`);
+            alert(`完成！成功解析 ${success} 張，失敗 ${fail} 張。`);
             event.target.value = '';
         }
 
@@ -279,13 +330,11 @@
                 rObj.onload = (e) => {
                     const img = new Image();
                     img.onload = async () => {
-                        // 嘗試直接解碼
                         try {
                             const res = await reader.decodeFromImageElement(img);
                             if (res?.text) { resolve(res.text); return; }
                         } catch {}
 
-                        // Canvas 放大加強對比再次嘗試
                         try {
                             const canvas = document.createElement('canvas');
                             canvas.width = img.width * 2;
@@ -309,39 +358,40 @@
             });
         }
 
-        // 開啟高畫質、自動對焦相機
+        // 開啟相機即時掃描
         async function startScanner() {
             document.getElementById('videoContainer').style.display = 'block';
             document.getElementById('scannerTip').style.display = 'block';
             const reader = getCodeReader();
 
             try {
-                // 強制指定高畫質與連續對焦設定
-                const constraints = {
-                    video: {
-                        facingMode: "environment",
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 },
-                        focusMode: "continuous"
-                    }
-                };
-                
-                await reader.decodeFromConstraints(constraints, 'interactive', (result) => {
+                const videoInputDevices = await ZXing.BrowserMultiFormatReader.listVideoInputDevices();
+                let selectedDeviceId = videoInputDevices.length > 0 ? videoInputDevices[videoInputDevices.length - 1].deviceId : null;
+
+                reader.decodeFromVideoDevice(selectedDeviceId, 'interactive', (result) => {
                     if (result) {
-                        document.getElementById('barcodeNumber').value = result.text;
+                        const codeText = result.text;
+                        document.getElementById('barcodeNumber').value = codeText;
+                        
+                        if (codeText.startsWith('9') || codeText.startsWith('2')) {
+                            document.getElementById('storeName').value = '全家';
+                        }
+                        
                         stopScanner();
                         if (navigator.vibrate) navigator.vibrate(100);
                     }
                 });
             } catch (err) {
-                alert('無法啟動相機，請檢查相機權限或確認是否使用 HTTPS。');
+                alert('無法啟動相機，請確認瀏覽器相機權限。');
             }
         }
 
         function stopScanner() {
             if (codeReader) codeReader.reset();
-            document.getElementById('videoContainer').style.display = 'none';
-            document.getElementById('scannerTip').style.display = 'none';
+            const container = document.getElementById('videoContainer');
+            const tip = document.getElementById('scannerTip');
+            if (container) container.style.display = 'none';
+            if (tip) tip.style.display = 'none';
         }
 
         function syncRemaining(el) {
@@ -354,6 +404,8 @@
             document.getElementById('modalTitle').innerText = '新增商品卡';
             document.getElementById('cardForm').reset();
             document.getElementById('cardId').value = '';
+            document.getElementById('scanDefaultAmount').value = '';
+            document.getElementById('scanCustomInput').style.display = 'none';
             stopScanner();
         }
 
@@ -382,7 +434,7 @@
             document.getElementById('calcPreviewBox').style.display = 'none';
             
             try {
-                JsBarcode("#barcodeSvg", card.barcodeNumber, { format: "CODE128", width: 2, height: 70, displayValue: false });
+                JsBarcode("#barcodeSvg", card.barcodeNumber, { format: "CODE128", width: 2, height: 60, displayValue: false });
             } catch (e) { console.error(e); }
             barcodeModal.show();
         }
@@ -402,10 +454,10 @@
             const val = Number(document.getElementById('quickDeductAmount').value);
             const card = cards.find(c => c.id === currentDeductingId);
             if (!val || val <= 0) { alert('請輸入有效金額'); return; }
-            if (val > card.remainingAmount && !confirm('扣款金額大於剩餘金額，確定歸零嗎？')) return;
+            if (val > card.remainingAmount && !confirm('扣款大於剩餘金額，確定歸零嗎？')) return;
 
             cards = cards.map(c => c.id === currentDeductingId ? { ...c, remainingAmount: Math.max(0, c.remainingAmount - val) } : c);
-            localStorage.setItem('convenience_store_cards_v3', JSON.stringify(cards));
+            localStorage.setItem('convenience_store_cards_v5', JSON.stringify(cards));
             barcodeModal.hide();
             renderCards();
             alert('扣款成功！');
@@ -430,15 +482,15 @@
                 cards.push({ id: Date.now(), ...data });
             }
 
-            localStorage.setItem('convenience_store_cards_v3', JSON.stringify(cards));
+            localStorage.setItem('convenience_store_cards_v5', JSON.stringify(cards));
             cardModal.hide();
             renderCards();
         }
 
         function deleteCard(id) {
-            if (confirm('確定要刪除嗎？')) {
+            if (confirm('確定刪除此卡片？')) {
                 cards = cards.filter(c => c.id !== id);
-                localStorage.setItem('convenience_store_cards_v3', JSON.stringify(cards));
+                localStorage.setItem('convenience_store_cards_v5', JSON.stringify(cards));
                 renderCards();
             }
         }
@@ -451,7 +503,7 @@
 
             const list = cards.filter(c => !filter || c.storeName === filter);
             if (!list.length) {
-                tbody.innerHTML = `<tr><td colspan="7" class="text-muted py-4">目前沒有商品卡資料。</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="7" class="text-muted py-3">目前無商品卡資料</td></tr>`;
             }
 
             list.forEach(card => {
@@ -466,18 +518,18 @@
                 if (isDepleted) tr.classList.add('card-depleted');
                 tr.innerHTML = `
                     <td>${getStoreBadge(card.storeName)}</td>
-                    <td class="text-start ps-3">
+                    <td class="text-start ps-2">
                         <div class="fw-bold">${card.cardTitleName}</div>
-                        <small class="text-muted font-monospace">${card.barcodeNumber}</small>
+                        <span class="text-muted font-monospace" style="font-size: 0.75rem;">${card.barcodeNumber}</span>
                     </td>
                     <td>$${Number(card.initialAmount).toLocaleString()}</td>
                     <td class="fw-bold text-success">$${Number(card.remainingAmount).toLocaleString()}</td>
-                    <td>${card.expiryDate || '無期限'}</td>
+                    <td>${card.expiryDate || '無'}</td>
                     <td>${status}</td>
-                    <td>
-                        <button class="btn btn-sm btn-warning text-dark me-1" onclick="showBarcodeModal(${card.id})" ${isDepleted ? 'disabled' : ''}><i class="bi bi-upc-scan"></i> 結帳</button>
-                        <button class="btn btn-sm btn-outline-primary me-1" onclick="openEditModal(${card.id})"><i class="bi bi-pencil-square"></i></button>
-                        <button class="btn btn-sm btn-outline-danger" onclick="deleteCard(${card.id})"><i class="bi bi-trash"></i></button>
+                    <td class="text-nowrap">
+                        <button class="btn btn-sm btn-warning text-dark px-1 py-0" onclick="showBarcodeModal(${card.id})" ${isDepleted ? 'disabled' : ''}><i class="bi bi-upc-scan"></i></button>
+                        <button class="btn btn-sm btn-outline-primary px-1 py-0" onclick="openEditModal(${card.id})"><i class="bi bi-pencil"></i></button>
+                        <button class="btn btn-sm btn-outline-danger px-1 py-0" onclick="deleteCard(${card.id})"><i class="bi bi-trash"></i></button>
                     </td>
                 `;
                 tbody.appendChild(tr);
