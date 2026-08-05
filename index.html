@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>商品卡管理系統</title>
+    <title>超商商品卡管理系統</title>
     <!-- 引入 Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- 引入 Bootstrap Icons -->
@@ -57,7 +57,7 @@
 
     <div class="container py-4">
         <header class="pb-3 mb-4 border-bottom d-flex justify-content-between align-items-center">
-            <h1 class="h4 fw-bold text-primary mb-0"><i class="bi bi-wallet2"></i> 商品卡管理系統</h1>
+            <h1 class="h4 fw-bold text-primary mb-0"><i class="bi bi-wallet2"></i> 超商商品卡管理系統</h1>
             <div class="d-flex gap-2">
                 <label class="btn btn-outline-primary btn-sm mb-0" style="cursor: pointer;">
                     <i class="bi bi-images"></i> 相簿批量新增
@@ -107,6 +107,7 @@
                         <option value="7-11">7-11</option>
                         <option value="全家">全家</option>
                         <option value="萊爾富">萊爾富</option>
+                        <option value="OK超商">OK超商</option>
                         <option value="其他">其他</option>
                     </select>
                 </div>
@@ -154,7 +155,7 @@
                                 <div class="scanner-frame"></div>
                             </div>
                             <div id="scannerTip" class="text-muted small mt-1" style="display: none;">
-                                請將條碼對準藍框中央（支援 10-20cm 近距離）... (<a href="#" onclick="stopScanner(); return false;" class="text-danger">關閉相機</a>)
+                                請將條碼對準藍框中央... (<a href="#" onclick="stopScanner(); return false;" class="text-danger">關閉相機</a>)
                             </div>
                         </div>
 
@@ -164,12 +165,13 @@
                                 <option value="7-11">7-11 統一超商</option>
                                 <option value="全家">全家便利商店</option>
                                 <option value="萊爾富">萊爾富</option>
+                                <option value="OK超商">OK超商</option>
                                 <option value="其他">其他</option>
                             </select>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">卡片名稱 / 辨識備註</label>
-                            <input type="text" class="form-control" id="cardTitleName" placeholder="例如：迎夏禮券" required>
+                            <input type="text" class="form-control" id="cardTitleName" placeholder="例如：711禮券" required>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">條碼數字編號 (供結帳出示)</label>
@@ -244,6 +246,7 @@
                 case '7-11': return '<span class="badge bg-danger">7-11</span>';
                 case '全家': return '<span class="badge bg-primary">全家</span>';
                 case '萊爾富': return '<span class="badge bg-warning text-dark">萊爾富</span>';
+                case 'OK超商': return '<span class="badge bg-info text-dark">OK超商</span>';
                 default: return '<span class="badge bg-secondary">其他</span>';
             }
         }
@@ -258,24 +261,12 @@
 
         function getCodeReader() {
             if (!codeReader) {
-                const hints = new Map();
-                const formats = [
-                    ZXing.BarcodeFormat.CODE_128,
-                    ZXing.BarcodeFormat.CODE_39,
-                    ZXing.BarcodeFormat.EAN_13,
-                    ZXing.BarcodeFormat.EAN_8,
-                    ZXing.BarcodeFormat.UPC_A,
-                    ZXing.BarcodeFormat.UPC_E,
-                    ZXing.BarcodeFormat.ITF
-                ];
-                hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
-                hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-                codeReader = new ZXing.BrowserBarcodeReader(hints);
+                codeReader = new ZXing.BrowserBarcodeReader();
             }
             return codeReader;
         }
 
-        // 批量匯入照片：採用原圖不壓縮機制，支援全家及各類商品卡高精度解碼
+        // 批量匯入照片修正
         async function handleBatchImages(event) {
             const files = event.target.files;
             if (!files || files.length === 0) return;
@@ -326,7 +317,6 @@
                     const img = new Image();
                     img.onload = async function() {
                         try {
-                            // 直接以原始高解析度載入解碼，不進行損耗性壓縮
                             const res = await reader.decodeFromImageElement(img);
                             if (res && res.text) {
                                 resolve(res.text);
@@ -334,11 +324,11 @@
                             }
                         } catch (err) {}
 
-                        // 備用方案：透過 Canvas 放大再解析一次
+                        // 透過 Canvas 預處理（放大與轉灰階增加對比）
                         try {
                             const canvas = document.createElement('canvas');
-                            canvas.width = img.width * 1.5;
-                            canvas.height = img.height * 1.5;
+                            canvas.width = img.width * 2;
+                            canvas.height = img.height * 2;
                             const ctx = canvas.getContext('2d');
                             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
@@ -391,7 +381,7 @@
             }
         }
 
-        // 開啟相機：原畫輸出、連續對焦、結合定位框最佳化
+        // 開啟相機掃描修正
         async function startScanner() {
             const container = document.getElementById('videoContainer');
             const tip = document.getElementById('scannerTip');
@@ -401,29 +391,8 @@
             const reader = getCodeReader();
             
             try {
-                const videoInputDevices = await reader.listVideoInputDevices();
-                let selectedDeviceId = videoInputDevices[0]?.deviceId;
-
-                for (const device of videoInputDevices) {
-                    const label = device.label.toLowerCase();
-                    if (label.includes('back') || label.includes('rear') || label.includes('environment')) {
-                        selectedDeviceId = device.deviceId;
-                        break;
-                    }
-                }
-
-                // 設定高畫質、原相機比例、持續對焦
-                const constraints = {
-                    video: {
-                        deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined,
-                        width: { ideal: 1920 },
-                        height: { ideal: 1080 },
-                        facingMode: "environment",
-                        advanced: [{ focusMode: "continuous" }]
-                    }
-                };
-
-                reader.decodeFromConstraints(constraints, 'interactive', (result, err) => {
+                // 使用 ZXing 標準解碼相機串流方法
+                reader.decodeFromVideoDevice(null, 'interactive', (result, err) => {
                     if (result) {
                         document.getElementById('barcodeNumber').value = result.text;
                         stopScanner();
@@ -431,17 +400,7 @@
                     }
                 });
             } catch (err) {
-                try {
-                    reader.decodeFromConstraints({ video: { facingMode: "environment" } }, 'interactive', (result) => {
-                        if (result) {
-                            document.getElementById('barcodeNumber').value = result.text;
-                            stopScanner();
-                            if (navigator.vibrate) navigator.vibrate(100);
-                        }
-                    });
-                } catch (e) {
-                    alert('無法啟動相機，請檢查瀏覽器相機權限或是否使用 HTTPS/Localhost。');
-                }
+                alert('無法啟動相機，請檢查瀏覽器相機權限或是否使用 HTTPS/Localhost。');
             }
         }
 
@@ -578,7 +537,7 @@
             const filteredCards = cards.filter(c => !filterStore || c.storeName === filterStore);
 
             if (filteredCards.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7" class="text-muted py-4">目前沒有商品卡資料，請點擊右上角新增或從相簿批量匯入。</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="7" class="text-muted py-4">目前沒有相關商品卡資料，請點擊右上角新增或從相簿批量匯入。</td></tr>`;
             }
 
             filteredCards.forEach(card => {
