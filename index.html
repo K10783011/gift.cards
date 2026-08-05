@@ -110,11 +110,11 @@
                         <!-- 相機掃描區塊 -->
                         <div class="mb-3 p-3 bg-light rounded border text-center">
                             <button type="button" class="btn btn-outline-dark btn-sm mb-2" onclick="startScanner()">
-                                <i class="bi bi-camera-fill"></i> 開啟相機掃描條碼
+                                <i class="bi bi-camera-fill"></i> 開啟相機掃描一維條碼
                             </button>
                             <div id="videoContainer">
                                 <video id="interactive" class="viewport"></video>
-                                <p class="text-muted small mt-1">請將條碼對準鏡頭... (<a href="#" onclick="stopScanner(); return false;" class="text-danger">關閉相機</a>)</p>
+                                <p class="text-muted small mt-1">請將一維條碼對準鏡頭... (<a href="#" onclick="stopScanner(); return false;" class="text-danger">關閉相機</a>)</p>
                             </div>
                         </div>
 
@@ -228,21 +228,48 @@
             }
         }
 
-        // 開啟相機掃描條碼
-        function startScanner() {
+        // 開啟相機掃描一維條碼
+        async function startScanner() {
             const container = document.getElementById('videoContainer');
             container.style.display = 'block';
-            codeReader = new ZXing.BrowserBarcodeReader();
-            codeReader.decodeFromVideoDevice(null, 'interactive', (result, err) => {
-                if (result) {
-                    document.getElementById('barcodeNumber').value = result.text;
-                    alert('成功掃描條碼：' + result.text);
-                    stopScanner();
+
+            // 設定僅針對常見的一維條碼格式進行解碼以提升效能與準確率
+            const hints = new Map();
+            const formats = [
+                ZXing.BarcodeFormat.CODE_128,
+                ZXing.BarcodeFormat.CODE_39,
+                ZXing.BarcodeFormat.EAN_13,
+                ZXing.BarcodeFormat.EAN_8,
+                ZXing.BarcodeFormat.UPC_A,
+                ZXing.BarcodeFormat.UPC_E,
+                ZXing.BarcodeFormat.ITF
+            ];
+            hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
+
+            codeReader = new ZXing.BrowserBarcodeReader(hints);
+            
+            try {
+                const videoInputDevices = await codeReader.listVideoInputDevices();
+                // 優先選擇後鏡頭 (environment)
+                let selectedDeviceId = videoInputDevices[0]?.deviceId;
+                for (const device of videoInputDevices) {
+                    if (/back|rear|environment/i.test(device.label)) {
+                        selectedDeviceId = device.deviceId;
+                        break;
+                    }
                 }
-            }).catch(err => {
+
+                codeReader.decodeFromVideoDevice(selectedDeviceId, 'interactive', (result, err) => {
+                    if (result) {
+                        document.getElementById('barcodeNumber').value = result.text;
+                        alert('成功掃描一維條碼：' + result.text);
+                        stopScanner();
+                    }
+                });
+            } catch (err) {
                 console.error(err);
-                alert('無法啟動相機，請檢查瀏覽器相機權限。');
-            });
+                alert('無法啟動相機，請檢查瀏覽器相機權限或是否使用 HTTPS/Localhost。');
+            }
         }
 
         function stopScanner() {
@@ -263,7 +290,7 @@
             document.getElementById('barcodeTextDisplay').innerText = card.barcodeNumber;
             document.getElementById('quickDeductAmount').value = '';
             
-            // 使用 JsBarcode 產生條碼
+            // 使用 JsBarcode 產生一維條碼 (預設 Code 128)
             try {
                 JsBarcode("#barcodeSvg", card.barcodeNumber, {
                     format: "CODE128",
