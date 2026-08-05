@@ -154,7 +154,7 @@
 
                         <div class="mb-3">
                             <label class="form-label">超商平台 (自動智慧辨識)</label>
-                            <select class="form-select" id="storeName" required onchange="updateStoreColorStyle()">
+                            <select class="form-select" id="storeName" required>
                                 <option value="7-11">7-11 統一超商</option>
                                 <option value="全家">全家便利商店</option>
                                 <option value="萊爾富">萊爾富</option>
@@ -168,7 +168,7 @@
                         </div>
                         <div class="mb-3">
                             <label class="form-label">條碼數字編號 (供結帳出示)</label>
-                            <input type="text" class="form-control font-monospace" id="barcodeNumber" placeholder="例如：1234567890123" required oninput="autoDetectStoreByBarcode(this.value)">
+                            <input type="text" class="form-control font-monospace" id="barcodeNumber" placeholder="例如：1234567890123" required>
                         </div>
                         <div class="row">
                             <div class="col-md-6 mb-3">
@@ -236,7 +236,6 @@
         let codeReader = null;
         let currentDeductingId = null;
 
-        // 取得超商對應的 Bootstrap Badge 顏色樣式
         function getStoreBadge(storeName) {
             switch(storeName) {
                 case '7-11': return '<span class="badge bg-danger">7-11</span>';
@@ -247,27 +246,15 @@
             }
         }
 
-        // 透過條碼前綴自動判斷超商類型
-        function autoDetectStoreByBarcode(barcode) {
-            if (!barcode) return;
-            const storeSelect = document.getElementById('storeName');
-            // 依常見規則辨識 (可依需求微調邏輯)
-            if (barcode.startsWith('7') || barcode.length === 13 && barcode.startsWith('471')) {
-                // 僅做參考示範，可保留手動調整
-            }
-        }
-
-        function updateStoreColorStyle() {
-            // 可用於即時變更表單外觀或互動提示
-        }
-
-        // 1. 相簿批量選取圖片並解碼
+        // 1. 優化相簿批量匯入：透過 Canvas 進行圖片等比壓縮與預處理，確保高成功率
         async function handleBatchImages(event) {
             const files = event.target.files;
             if (!files || files.length === 0) return;
 
             if (!codeReader) {
-                codeReader = new ZXing.BrowserBarcodeReader();
+                const hints = new Map();
+                hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+                codeReader = new ZXing.BrowserBarcodeReader(hints);
             }
 
             let successCount = 0;
@@ -275,19 +262,17 @@
 
             for (let file of files) {
                 try {
-                    const imageUrl = URL.createObjectURL(file);
-                    const result = await codeReader.decodeFromImage(undefined, imageUrl);
-                    if (result && result.text) {
-                        // 自動推斷超商
+                    const barcodeText = await decodeImageFileWithCanvas(file);
+                    if (barcodeText) {
                         let detectedStore = "7-11";
-                        let text = result.text;
-                        
+                        if (barcodeText.startsWith('9')) detectedStore = "全家";
+
                         const newCard = {
                             id: Date.now() + Math.random(),
                             storeName: detectedStore,
-                            cardTitleName: `匯入商品卡 (${text.slice(-4)})`,
-                            barcodeNumber: text,
-                            initialAmount: 500, // 預設帶入預設額度供後續修改
+                            cardTitleName: `匯入商品卡 (${barcodeText.slice(-4)})`,
+                            barcodeNumber: barcodeText,
+                            initialAmount: 500,
                             remainingAmount: 500,
                             expiryDate: ''
                         };
@@ -303,8 +288,65 @@
 
             localStorage.setItem('convenience_store_cards_v3', JSON.stringify(cards));
             renderCards();
-            alert(`批量匯入完成！成功解析 ${successCount} 張，失敗/無條碼 ${failCount} 張。您可以點擊「編輯」調整面額與超商名稱。`);
-            event.target.value = ''; // 清空檔案以便重複選取
+            alert(`批量匯入完成！成功解析 ${successCount} 張，失敗/無條碼 ${failCount} 張。`);
+            event.target.value = '';
+        }
+
+        // 輔助函數：用 Canvas 處理圖片並進行條碼解碼
+        function decodeImageFileWithCanvas(file) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = new Image();
+                    img.onload = async function() {
+                        const canvas = document.createElement('canvas');
+                        const MAX_SIZE = 1280;
+                        let width = img.width;
+                        let height = img.height;
+
+                        if (width > height && width > MAX_SIZE) {
+                            height *= MAX_SIZE / width;
+                            width = MAX_SIZE;
+                        } else if (height > MAX_SIZE) {
+                            width *= MAX_SIZE / height;
+                            height = MAX_SIZE;
+                        }
+
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+
+                        try {
+                            const result = await codeReader.decodeFromImageElement(img);
+                            if (result) {
+                                resolve(result.text);
+                                return;
+                            }
+                        } catch (err) {
+                            // 忽略直接用 img 解碼失敗，嘗試用 canvas dataURL
+                        }
+
+                        try {
+                            const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+                            const tempImg = new Image();
+                            tempImg.onload = async function() {
+                                try {
+                                    const res = await codeReader.decodeFromImageElement(tempImg);
+                                    resolve(res ? res.text : null);
+                                } catch (ex) {
+                                    resolve(null);
+                                }
+                            };
+                            tempImg.src = dataUrl;
+                        } catch (ex) {
+                            resolve(null);
+                        }
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
         }
 
         function syncRemaining(el) {
@@ -336,7 +378,7 @@
             }
         }
 
-        // 高速與精確度優化的相機掃描
+        // 2. 優化相機掃描：優先選擇短焦距 / 後置超廣角或主鏡頭
         async function startScanner() {
             const container = document.getElementById('videoContainer');
             const tip = document.getElementById('scannerTip');
@@ -362,8 +404,11 @@
             try {
                 const videoInputDevices = await codeReader.listVideoInputDevices();
                 let selectedDeviceId = videoInputDevices[0]?.deviceId;
+
+                // 優先過濾短焦距 / 廣角 / 後置相機鏡頭
                 for (const device of videoInputDevices) {
-                    if (/back|rear|environment/i.test(device.label)) {
+                    const label = device.label.toLowerCase();
+                    if (label.includes('ultra') || label.includes('wide') || label.includes('back') || label.includes('rear') || label.includes('environment')) {
                         selectedDeviceId = device.deviceId;
                         break;
                     }
