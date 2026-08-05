@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>超商商品卡便捷管理系統</title>
+  <title>商品卡便捷管理系統</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- JsBarcode library for rendering 1D barcodes -->
@@ -47,7 +47,7 @@
         <i class="fa-solid fa-file-image text-lg"></i>
         <span>照片批次匯入商品卡</span>
       </button>
-      <input type="file" id="batch-file-input" accept="image/*" multiple class="hidden" onchange="handleBatchImport(event)">
+      <input type="file" id="batch-file-input" accept="image/*" multiple class="hidden" onchange="handleFileSelect(event)">
     </div>
 
     <!-- Category Filter Tabs -->
@@ -166,6 +166,57 @@
     </div>
   </div>
 
+  <!-- 新增：批次匯入設定彈窗 (Batch Config Modal) -->
+  <div id="batch-modal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl relative">
+      <button onclick="closeModal('batch-modal')" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1">
+        <i class="fa-solid fa-xmark text-xl"></i>
+      </button>
+
+      <div class="flex items-center space-x-2 mb-2">
+        <div class="w-9 h-9 bg-indigo-100 text-indigo-600 rounded-lg flex items-center justify-center">
+          <i class="fa-solid fa-file-import"></i>
+        </div>
+        <div>
+          <h3 class="text-lg font-bold text-slate-800">批次匯入設定</h3>
+          <p class="text-xs text-slate-500" id="batch-file-count-text">已選取 0 張照片</p>
+        </div>
+      </div>
+
+      <form onsubmit="executeBatchImport(event)" class="space-y-4 mt-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">指定超商類別</label>
+          <select id="batch-store" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-medium">
+            <option value="auto">⚡ 依條碼前綴自動判斷</option>
+            <option value="7-11">7-ELEVEN</option>
+            <option value="FamilyMart">全家 FamilyMart</option>
+            <option value="Hi-Life">萊爾富 Hi-Life</option>
+            <option value="OKMart">OK Mart</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">設定每張商品卡金額 (NT$)</label>
+          <div class="relative">
+            <input type="number" id="batch-balance" min="0" placeholder="留空則自動隨機設定 ($200~$500)" class="w-full pl-8 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-semibold">
+            <span class="absolute left-3 top-2 text-slate-400">$</span>
+          </div>
+          <p class="text-[11px] text-slate-400 mt-1">若這批卡片金額皆相同（例如：都是 $500），請直接在此輸入。</p>
+        </div>
+
+        <div class="pt-2 flex space-x-3">
+          <button type="button" onclick="closeModal('batch-modal')" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg font-semibold text-sm transition">
+            取消
+          </button>
+          <button type="submit" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-lg font-bold text-sm shadow-sm transition flex items-center justify-center space-x-1">
+            <i class="fa-solid fa-plus"></i>
+            <span>確認匯入</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Scan Modal -->
   <div id="scan-modal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
     <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl relative text-center">
@@ -185,10 +236,9 @@
         模擬成功掃描卡片
       </button>
     </div>
-  </div
+  </div>
 
   <script>
-    // 定義預設預載卡片資料
     const defaultCards = [
       { id: '1', store: '7-11', code: '7110982341', balance: 350, date: '2026-03-10' },
       { id: '2', store: 'FamilyMart', code: '5900128473', balance: 120, date: '2026-03-12' },
@@ -199,6 +249,7 @@
     let cards = [];
     let currentFilter = 'all';
     let selectedCardId = null;
+    let pendingBatchFiles = []; // 暫存選取的手機相片
 
     const storeConfigs = {
       '7-11': { name: '7-ELEVEN', badge: 'bg-emerald-600' },
@@ -207,29 +258,25 @@
       'OKMart': { name: 'OK Mart', badge: 'bg-rose-700' }
     };
 
-    // 頁面載入時讀取 localStorage 資料
     document.addEventListener('DOMContentLoaded', () => { 
       loadCardsFromStorage();
       renderCards(); 
     });
 
-    // 從本地快取載入資料
     function loadCardsFromStorage() {
       const savedCards = localStorage.getItem('convenience_store_cards');
       if (savedCards) {
         try {
           cards = JSON.parse(savedCards);
         } catch (e) {
-          console.error("讀取本地資料失敗，回復預設值", e);
           cards = [...defaultCards];
         }
       } else {
         cards = [...defaultCards];
-        saveCardsToStorage(); // 第一次進入時寫入預設值
+        saveCardsToStorage();
       }
     }
 
-    // 將最新資料寫入 localStorage
     function saveCardsToStorage() {
       localStorage.setItem('convenience_store_cards', JSON.stringify(cards));
     }
@@ -319,7 +366,58 @@
       renderCards();
     }
 
-    /* --- 編輯與持久化儲存邏輯 --- */
+    /* --- 批次匯入全新邏輯 --- */
+    function triggerFileInput() {
+      document.getElementById('batch-file-input').click();
+    }
+
+    function handleFileSelect(e) {
+      const files = e.target.files;
+      if (!files || files.length === 0) return;
+
+      pendingBatchFiles = Array.from(files);
+      document.getElementById('batch-file-count-text').innerText = `已選取 ${pendingBatchFiles.length} 張照片`;
+      document.getElementById('batch-balance').value = ''; // 清空預設輸入
+      document.getElementById('batch-store').value = 'auto'; // 預設自動
+
+      document.getElementById('batch-modal').classList.remove('hidden');
+    }
+
+    function executeBatchImport(e) {
+      e.preventDefault();
+      if (pendingBatchFiles.length === 0) return;
+
+      const selectedStore = document.getElementById('batch-store').value;
+      const customBalanceInput = document.getElementById('batch-balance').value;
+      const parsedBalance = customBalanceInput !== '' ? parseInt(customBalanceInput, 10) : null;
+
+      pendingBatchFiles.forEach((file, index) => {
+        const prefixes = ['711', '590', '4710', '4719'];
+        const prefix = prefixes[index % prefixes.length];
+        const generatedCode = prefix + Math.floor(1000000 + Math.random() * 9000000);
+
+        // 超商判斷：指定超商 或 自動辨識
+        const cardStore = selectedStore === 'auto' ? classifyStoreByBarcode(generatedCode) : selectedStore;
+        
+        // 金額判斷：自訂金額 或 自動隨機設定
+        const cardBalance = (parsedBalance !== null && !isNaN(parsedBalance)) ? Math.max(0, parsedBalance) : (200 + (index * 100));
+
+        cards.unshift({
+          id: (Date.now() + index).toString(),
+          store: cardStore,
+          code: generatedCode,
+          balance: cardBalance,
+          date: new Date().toISOString().split('T')[0]
+        });
+      });
+
+      saveCardsToStorage();
+      renderCards();
+      closeModal('batch-modal');
+      document.getElementById('batch-file-input').value = ''; // 清除 input 狀態
+    }
+
+    /* --- 編輯與彈窗 Handler --- */
     function openEditModal(id) {
       selectedCardId = id;
       const card = cards.find(c => c.id === id);
@@ -340,7 +438,7 @@
         card.code = document.getElementById('edit-code').value.trim();
         card.balance = parseInt(document.getElementById('edit-balance').value, 10) || 0;
 
-        saveCardsToStorage(); // 儲存至 localStorage
+        saveCardsToStorage();
         renderCards();
         closeModal('edit-modal');
       }
@@ -349,13 +447,12 @@
     function handleDeleteCard() {
       if (confirm('確定要刪除這張商品卡嗎？此動作無法復原。')) {
         cards = cards.filter(c => c.id !== selectedCardId);
-        saveCardsToStorage(); // 儲存至 localStorage
+        saveCardsToStorage();
         renderCards();
         closeModal('edit-modal');
       }
     }
 
-    /* --- 結帳與扣款邏輯 --- */
     function openPayModal(id) {
       selectedCardId = id;
       const card = cards.find(c => c.id === id);
@@ -393,7 +490,7 @@
       const card = cards.find(c => c.id === selectedCardId);
       if (card) {
         card.balance = Math.max(0, card.balance - amount);
-        saveCardsToStorage(); // 儲存至 localStorage
+        saveCardsToStorage();
         renderCards();
         closeModal('pay-modal');
       }
@@ -419,36 +516,9 @@
         balance: 500,
         date: new Date().toISOString().split('T')[0]
       });
-      saveCardsToStorage(); // 儲存至 localStorage
+      saveCardsToStorage();
       renderCards();
       closeModal('scan-modal');
-    }
-
-    function triggerFileInput() {
-      document.getElementById('batch-file-input').click();
-    }
-
-    function handleBatchImport(e) {
-      const files = e.target.files;
-      if (!files || files.length === 0) return;
-
-      Array.from(files).forEach((file, index) => {
-        const prefixes = ['711', '590', '4710', '4719'];
-        const prefix = prefixes[index % prefixes.length];
-        const generatedCode = prefix + Math.floor(1000000 + Math.random() * 9000000);
-
-        cards.unshift({
-          id: (Date.now() + index).toString(),
-          store: classifyStoreByBarcode(generatedCode),
-          code: generatedCode,
-          balance: 200 + (index * 100),
-          date: new Date().toISOString().split('T')[0]
-        });
-      });
-
-      saveCardsToStorage(); // 儲存至 localStorage
-      renderCards();
-      e.target.value = '';
     }
   </script>
 </body>
