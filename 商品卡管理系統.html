@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>超商商品卡管理系統 (進階版)</title>
+    <!-- 引入 Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- 引入 Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- 引入 JsBarcode 用於產生條碼圖示 -->
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <!-- 引入 ZXing 掃描庫用於相機掃條碼 -->
+    <script type="text/javascript" src="https://unpkg.com/@zxing/library@latest"></script>
+    <style>
+        body { background-color: #f8f9fa; }
+        .card-summary { border-left: 5px solid #0d6efd; }
+        #videoContainer { max-width: 100%; max-height: 300px; display: none; }
+        video { width: 100%; border-radius: 8px; }
+    </style>
+</head>
+<body>
+
+    <div class="container py-5">
+        <header class="pb-3 mb-4 border-bottom d-flex justify-content-between align-items-center">
+            <h1 class="h3 fw-bold text-primary"><i class="bi bi-wallet2"></i> 超商商品卡管理系統</h1>
+            <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#cardModal" onclick="openAddModal()">
+                <i class="bi bi-plus-circle"></i> 新增商品卡
+            </button>
+        </header>
+
+        <!-- 數據總覽看板 -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-4">
+                <div class="card shadow-sm card-summary">
+                    <div class="card-body">
+                        <h6 class="text-muted">初始總面額</h6>
+                        <h3 class="fw-bold" id="totalInitial">$0</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card shadow-sm" style="border-left: 5px solid #198754;">
+                    <div class="card-body">
+                        <h6 class="text-muted">目前剩餘總額</h6>
+                        <h3 class="fw-bold text-success" id="totalRemaining">$0</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card shadow-sm" style="border-left: 5px solid #ffc107;">
+                    <div class="card-body">
+                        <h6 class="text-muted">已使用金額</h6>
+                        <h3 class="fw-bold text-secondary" id="totalUsed">$0</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 卡片列表區 -->
+        <div class="card shadow-sm">
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                <h5 class="mb-0 fw-bold">我的商品卡清單</h5>
+                <div>
+                    <select id="filterStore" class="form-select form-select-sm" onchange="renderCards()">
+                        <option value="">全部超商</option>
+                        <option value="7-11">7-11</option>
+                        <option value="全家">全家</option>
+                        <option value="萊爾富">萊爾富</option>
+                        <option value="OK超商">OK超商</option>
+                        <option value="其他">其他</option>
+                    </select>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0 text-center">
+                        <thead class="table-light">
+                            <tr>
+                                <th>超商</th>
+                                <th>卡片名稱 / 條碼</th>
+                                <th>原始面額</th>
+                                <th>剩餘金額</th>
+                                <th>有效期限</th>
+                                <th>狀態</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cardTableBody">
+                            <!-- 動態渲染資料 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新增/編輯 Modal -->
+    <div class="modal fade" id="cardModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form id="cardForm" onsubmit="saveCard(event)">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="modalTitle">新增商品卡</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" onclick="stopScanner()"></button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" id="cardId">
+                        
+                        <!-- 相機掃描區塊 -->
+                        <div class="mb-3 p-3 bg-light rounded border text-center">
+                            <button type="button" class="btn btn-outline-dark btn-sm mb-2" onclick="startScanner()">
+                                <i class="bi bi-camera-fill"></i> 開啟相機掃描條碼
+                            </button>
+                            <div id="videoContainer">
+                                <video id="interactive" class="viewport"></video>
+                                <p class="text-muted small mt-1">請將條碼對準鏡頭... (<a href="#" onclick="stopScanner(); return false;" class="text-danger">關閉相機</a>)</p>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">超商平台</label>
+                            <select class="form-select" id="storeName" required>
+                                <option value="7-11">7-11 統一超商</option>
+                                <option value="全家">全家便利商店</option>
+                                <option value="萊爾富">萊爾富</option>
+                                <option value="OK超商">OK超商</option>
+                                <option value="其他">其他</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">卡片名稱 / 辨識備註</label>
+                            <input type="text" class="form-control" id="cardTitleName" placeholder="例如：迎夏禮券" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">條碼數字編號 (供結帳出示)</label>
+                            <input type="text" class="form-control font-monospace" id="barcodeNumber" placeholder="例如：1234567890123" required>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">原始面額 (NT$)</label>
+                                <input type="number" class="form-control" id="initialAmount" min="0" required oninput="syncRemaining(this)">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">剩餘金額 (NT$)</label>
+                                <input type="number" class="form-control" id="remainingAmount" min="0" required>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">有效期限 (選填)</label>
+                            <input type="date" class="form-control" id="expiryDate">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" onclick="stopScanner()">取消</button>
+                        <button type="submit" class="btn btn-primary">儲存</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 顯示付款條碼 Modal -->
+    <div class="modal fade" id="barcodeModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content text-center">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="barcodeModalTitle">出示條碼付款</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body py-4">
+                    <h4 id="barcodeCardInfo" class="text-primary mb-3"></h4>
+                    <div class="bg-white p-3 border d-inline-block rounded shadow-sm">
+                        <!-- 產生的條碼圖 -->
+                        <svg id="barcodeSvg"></svg>
+                    </div>
+                    <p id="barcodeTextDisplay" class="font-monospace text-muted mt-2 mb-0 fw-bold" style="font-size: 1.2rem;"></p>
+                    <hr class="my-4">
+                    <!-- 快速扣款區 -->
+                    <div class="text-start px-3">
+                        <label class="form-label fw-bold">店員刷完後，直接扣款：</label>
+                        <div class="input-group">
+                            <span class="input-group-text">$</span>
+                            <input type="number" id="quickDeductAmount" class="form-control" placeholder="輸入本次消費金額">
+                            <button class="btn btn-success" type="button" onclick="confirmDeduct()">確認扣款</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 引入 Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let cards = JSON.parse(localStorage.getItem('convenience_store_cards_v2')) || [];
+        const cardModal = new bootstrap.Modal(document.getElementById('cardModal'));
+        const barcodeModal = new bootstrap.Modal(document.getElementById('barcodeModal'));
+        let codeReader = null;
+        let currentDeductingId = null;
+
+        function syncRemaining(el) {
+            const cardId = document.getElementById('cardId').value;
+            if (!cardId) {
+                document.getElementById('remainingAmount').value = el.value;
+            }
+        }
+
+        function openAddModal() {
+            document.getElementById('modalTitle').innerText = '新增商品卡';
+            document.getElementById('cardForm').reset();
+            document.getElementById('cardId').value = '';
+            stopScanner();
+        }
+
+        function openEditModal(id) {
+            document.getElementById('modalTitle').innerText = '編輯商品卡';
+            const card = cards.find(c => c.id === id);
+            if (card) {
+                document.getElementById('cardId').value = card.id;
+                document.getElementById('storeName').value = card.storeName;
+                document.getElementById('cardTitleName').value = card.cardTitleName;
+                document.getElementById('barcodeNumber').value = card.barcodeNumber;
+                document.getElementById('initialAmount').value = card.initialAmount;
+                document.getElementById('remainingAmount').value = card.remainingAmount;
+                document.getElementById('expiryDate').value = card.expiryDate || '';
+                cardModal.show();
+            }
+        }
+
+        // 開啟相機掃描條碼
+        function startScanner() {
+            const container = document.getElementById('videoContainer');
+            container.style.display = 'block';
+            codeReader = new ZXing.BrowserBarcodeReader();
+            codeReader.decodeFromVideoDevice(null, 'interactive', (result, err) => {
+                if (result) {
+                    document.getElementById('barcodeNumber').value = result.text;
+                    alert('成功掃描條碼：' + result.text);
+                    stopScanner();
+                }
+            }).catch(err => {
+                console.error(err);
+                alert('無法啟動相機，請檢查瀏覽器相機權限。');
+            });
+        }
+
+        function stopScanner() {
+            if (codeReader) {
+                codeReader.reset();
+                codeReader = null;
+            }
+            const container = document.getElementById('videoContainer');
+            if (container) container.style.display = 'none';
+        }
+
+        // 顯示條碼供結帳
+        function showBarcodeModal(id) {
+            const card = cards.find(c => c.id === id);
+            if (!card) return;
+            currentDeductingId = id;
+            document.getElementById('barcodeCardInfo').innerText = `${card.storeName} - ${card.cardTitleName} (剩餘: $${card.remainingAmount})`;
+            document.getElementById('barcodeTextDisplay').innerText = card.barcodeNumber;
+            document.getElementById('quickDeductAmount').value = '';
+            
+            // 使用 JsBarcode 產生條碼
+            try {
+                JsBarcode("#barcodeSvg", card.barcodeNumber, {
+                    format: "CODE128",
+                    lineColor: "#000",
+                    width: 2,
+                    height: 80,
+                    displayValue: false
+                });
+            } catch (e) {
+                console.error(e);
+            }
+
+            barcodeModal.show();
+        }
+
+        // 確認扣款
+        function confirmDeduct() {
+            const deductVal = Number(document.getElementById('quickDeductAmount').value);
+            if (!deductVal || deductVal <= 0) {
+                alert('請輸入有效的消費金額');
+                return;
+            }
+
+            cards = cards.map(c => {
+                if (c.id === currentDeductingId) {
+                    let newRem = c.remainingAmount - deductVal;
+                    if (newRem < 0) newRem = 0;
+                    return { ...c, remainingAmount: newRem };
+                }
+                return c;
+            });
+
+            localStorage.setItem('convenience_store_cards_v2', JSON.stringify(cards));
+            barcodeModal.hide();
+            renderCards();
+            alert('扣款成功！餘額已更新。');
+        }
+
+        function saveCard(e) {
+            e.preventDefault();
+            stopScanner();
+            const id = document.getElementById('cardId').value;
+            const storeName = document.getElementById('storeName').value;
+            const cardTitleName = document.getElementById('cardTitleName').value;
+            const barcodeNumber = document.getElementById('barcodeNumber').value;
+            const initialAmount = Number(document.getElementById('initialAmount').value);
+            const remainingAmount = Number(document.getElementById('remainingAmount').value);
+            const expiryDate = document.getElementById('expiryDate').value;
+
+            if (id) {
+                cards = cards.map(c => c.id == id ? { ...c, storeName, cardTitleName, barcodeNumber, initialAmount, remainingAmount, expiryDate } : c);
+            } else {
+                const newCard = {
+                    id: Date.now(),
+                    storeName,
+                    cardTitleName,
+                    barcodeNumber,
+                    initialAmount,
+                    remainingAmount,
+                    expiryDate
+                };
+                cards.push(newCard);
+            }
+
+            localStorage.setItem('convenience_store_cards_v2', JSON.stringify(cards));
+            cardModal.hide();
+            renderCards();
+        }
+
+        function deleteCard(id) {
+            if (confirm('確定要刪除這張商品卡紀錄嗎？')) {
+                cards = cards.filter(c => c.id !== id);
+                localStorage.setItem('convenience_store_cards_v2', JSON.stringify(cards));
+                renderCards();
+            }
+        }
+
+        function renderCards() {
+            const tbody = document.getElementById('cardTableBody');
+            const filterStore = document.getElementById('filterStore').value;
+            tbody.innerHTML = '';
+
+            let totalInit = 0;
+            let totalRem = 0;
+
+            const filteredCards = cards.filter(c => !filterStore || c.storeName === filterStore);
+
+            if (filteredCards.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="text-muted py-4">目前沒有相關商品卡資料，請點擊右上角新增。</td></tr>`;
+            }
+
+            filteredCards.forEach(card => {
+                totalInit += Number(card.initialAmount);
+                totalRem += Number(card.remainingAmount);
+
+                let statusBadge = '<span class="badge bg-success">正常使用</span>';
+                if (Number(card.remainingAmount) === 0) {
+                    statusBadge = '<span class="badge bg-secondary">餘額為零</span>';
+                } else if (card.expiryDate && new Date(card.expiryDate) < new Date()) {
+                    statusBadge = '<span class="badge bg-danger">已過期</span>';
+                }
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><strong>${card.storeName}</strong></td>
+                    <td class="text-start ps-3">
+                        <div class="fw-bold">${card.cardTitleName}</div>
+                        <small class="text-muted font-monospace">條碼: ${card.barcodeNumber}</small>
+                    </td>
+                    <td>$${Number(card.initialAmount).toLocaleString()}</td>
+                    <td class="fw-bold text-success">$${Number(card.remainingAmount).toLocaleString()}</td>
+                    <td>${card.expiryDate || '無期限'}</td>
+                    <td>${statusBadge}</td>
+                    <td>
+                        <button class="btn btn-sm btn-warning text-dark me-1" onclick="showBarcodeModal(${card.id})" title="出示條碼付款"><i class="bi bi-upc-scan"></i> 結帳</button>
+                        <button class="btn btn-sm btn-outline-primary me-1" onclick="openEditModal(${card.id})" title="編輯"><i class="bi bi-pencil-square"></i></button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteCard(${card.id})" title="刪除"><i class="bi bi-trash"></i></button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            document.getElementById('totalInitial').innerText = `$${totalInit.toLocaleString()}`;
+            document.getElementById('totalRemaining').innerText = `$${totalRem.toLocaleString()}`;
+            document.getElementById('totalUsed').innerText = `$${(totalInit - totalRem).toLocaleString()}`;
+        }
+
+        renderCards();
+    </script>
+</body>
+</html>
