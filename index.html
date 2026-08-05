@@ -13,7 +13,8 @@
     <!-- ZXing 掃描庫 -->
     <script type="text/javascript" src="https://unpkg.com/@zxing/library@latest"></script>
     <style>
-        body { background-color: #f8f9fa; white-space: nowrap; }
+        body { background-color: #e9ecef; white-space: nowrap; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; margin: 0; }
+        .app-container { width: 100%; max-width: 480px; background-color: #f8f9fa; min-height: 100vh; box-shadow: 0 0 15px rgba(0,0,0,0.1); padding-bottom: 2rem; }
         .card-summary { border-left: 4px solid #0d6efd; }
         #videoContainer { max-width: 100%; height: 280px; display: none; position: relative; background: #000; border-radius: 6px; overflow: hidden; }
         video { width: 100%; height: 100%; object-fit: cover; }
@@ -28,7 +29,7 @@
 </head>
 <body>
 
-    <div class="container py-3">
+    <div class="app-container py-3 px-3">
         <!-- 頂部標題與按鈕 -->
         <header class="pb-2 mb-3 border-bottom d-flex justify-content-between align-items-center">
             <h1 class="h5 fw-bold text-primary mb-0"><i class="bi bi-wallet2"></i> 商品卡管理</h1>
@@ -45,7 +46,7 @@
 
         <!-- 相機權限狀態提示區 -->
         <div id="cameraPermissionAlert" class="alert alert-warning py-2 mb-3 small d-flex justify-content-between align-items-center" style="display: none;">
-            <span><i class="bi bi-exclamation-triangle-fill"></i> 尚未授權相機權限，部分掃描功能可能無法使用。</span>
+            <span><i class="bi bi-exclamation-triangle-fill"></i> 尚未授權相機權限，請點擊授權。</span>
             <button class="btn btn-sm btn-dark text-nowrap py-0 px-2" onclick="requestCameraPermission()">立即授權</button>
         </div>
 
@@ -113,7 +114,7 @@
 
     <!-- 新增/編輯 Modal -->
     <div class="modal fade" id="cardModal" tabindex="-1" data-bs-backdrop="static">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <form id="cardForm" onsubmit="saveCard(event)">
                     <div class="modal-header py-2">
@@ -223,23 +224,19 @@
         let codeReader = null;
         let currentDeductingId = null;
 
-        // 頁面載入完成後自動嘗試請求相機權限
         window.addEventListener('DOMContentLoaded', () => {
             requestCameraPermission();
         });
 
-        // 請求相機權限函數
         async function requestCameraPermission() {
             try {
                 if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
                     const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                    // 取得權限後立即關閉串流，避免持續佔用相機
-                    stream.getTracks().forEach(track => track.stop());
+                    // 保留串流軌道有效性或直接暫停，避免後續解碼器抓不到裝置
                     document.getElementById('cameraPermissionAlert').style.display = 'none';
                 }
             } catch (err) {
-                console.warn('自動取得相機權限被拒絕或瀏覽器阻擋：', err);
-                // 若被瀏覽器阻擋，顯示提示列讓使用者手動點擊
+                console.warn('相機權限未取得：', err);
                 document.getElementById('cameraPermissionAlert').style.display = 'flex';
             }
         }
@@ -249,7 +246,6 @@
             return `<span class="badge bg-${map[store] || 'secondary'}">${store}</span>`;
         }
 
-        // 智慧解析條碼金額
         function parseAmount(text) {
             if (!text) return 100;
             if (text.includes('0500') || text.includes('500')) return 500;
@@ -261,7 +257,7 @@
                 if (sub.startsWith('05')) return 500;
                 if (sub.startsWith('10')) return 1000;
             }
-            return 100; // 預設面額
+            return 100;
         }
 
         function getCodeReader() {
@@ -271,7 +267,6 @@
             return codeReader;
         }
 
-        // 批量相簿圖片讀取與自動金額帶入
         async function handleBatchImages(event) {
             const files = event.target.files;
             if (!files.length) return;
@@ -317,7 +312,6 @@
                             if (res?.text) { resolve(res.text); return; }
                         } catch {}
 
-                        // 透過 Canvas 放大兩倍再次嘗試解碼
                         try {
                             const canvas = document.createElement('canvas');
                             canvas.width = img.width * 2;
@@ -341,7 +335,6 @@
             });
         }
 
-        // 開啟相機即時掃描與自動帶入金額
         async function startScanner() {
             document.getElementById('videoContainer').style.display = 'block';
             document.getElementById('scannerTip').style.display = 'block';
@@ -356,7 +349,6 @@
                         const codeText = result.text;
                         document.getElementById('barcodeNumber').value = codeText;
                         
-                        // 自動帶入金額與超商判定
                         const autoAmt = parseAmount(codeText);
                         document.getElementById('initialAmount').value = autoAmt;
                         document.getElementById('remainingAmount').value = autoAmt;
@@ -374,7 +366,11 @@
         }
 
         function stopScanner() {
-            if (codeReader) codeReader.reset();
+            if (codeReader) {
+                try {
+                    codeReader.reset();
+                } catch (e) {}
+            }
             const container = document.getElementById('videoContainer');
             const tip = document.getElementById('scannerTip');
             if (container) container.style.display = 'none';
