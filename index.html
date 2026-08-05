@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>商品卡管理系統</title>
+  <title>超商商品卡便捷管理系統</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- JsBarcode library for rendering 1D barcodes -->
@@ -23,7 +23,7 @@
         <i class="fa-solid fa-wallet text-2xl text-indigo-200"></i>
         <div>
           <h1 class="text-xl font-bold tracking-wide">商品卡數位管家</h1>
-          <p class="text-xs text-indigo-200">即時掃描 · 智慧分類 · 編輯管家</p>
+          <p class="text-xs text-indigo-200">即時掃描 · 智慧分類 · 本地自動儲存</p>
         </div>
       </div>
       <!-- Total Balance Display -->
@@ -119,7 +119,7 @@
     </div>
   </div>
 
-  <!-- Edit Card Modal (新增編輯功能彈窗) -->
+  <!-- Edit Card Modal -->
   <div id="edit-modal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
     <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl relative">
       <button onclick="closeModal('edit-modal')" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1">
@@ -185,16 +185,18 @@
         模擬成功掃描卡片
       </button>
     </div>
-  </div>
+  </div
 
   <script>
-    let cards = [
+    // 定義預設預載卡片資料
+    const defaultCards = [
       { id: '1', store: '7-11', code: '7110982341', balance: 350, date: '2026-03-10' },
       { id: '2', store: 'FamilyMart', code: '5900128473', balance: 120, date: '2026-03-12' },
       { id: '3', store: 'Hi-Life', code: '4710382910', balance: 0, date: '2026-02-28' },
       { id: '4', store: 'OKMart', code: '4719001122', balance: 200, date: '2026-03-15' }
     ];
 
+    let cards = [];
     let currentFilter = 'all';
     let selectedCardId = null;
 
@@ -205,7 +207,32 @@
       'OKMart': { name: 'OK Mart', badge: 'bg-rose-700' }
     };
 
-    document.addEventListener('DOMContentLoaded', () => { renderCards(); });
+    // 頁面載入時讀取 localStorage 資料
+    document.addEventListener('DOMContentLoaded', () => { 
+      loadCardsFromStorage();
+      renderCards(); 
+    });
+
+    // 從本地快取載入資料
+    function loadCardsFromStorage() {
+      const savedCards = localStorage.getItem('convenience_store_cards');
+      if (savedCards) {
+        try {
+          cards = JSON.parse(savedCards);
+        } catch (e) {
+          console.error("讀取本地資料失敗，回復預設值", e);
+          cards = [...defaultCards];
+        }
+      } else {
+        cards = [...defaultCards];
+        saveCardsToStorage(); // 第一次進入時寫入預設值
+      }
+    }
+
+    // 將最新資料寫入 localStorage
+    function saveCardsToStorage() {
+      localStorage.setItem('convenience_store_cards', JSON.stringify(cards));
+    }
 
     function renderCards() {
       const grid = document.getElementById('card-grid');
@@ -230,7 +257,6 @@
               </span>
               <div class="flex items-center space-x-2">
                 ${isDepleted ? `<span class="bg-slate-700 text-white text-xs px-2.5 py-0.5 rounded-full font-bold">已用完</span>` : ''}
-                <!-- 編輯按鈕 -->
                 <button onclick="openEditModal('${card.id}')" title="編輯卡片" class="text-slate-400 hover:text-indigo-600 p-1 transition">
                   <i class="fa-solid fa-pen-to-square"></i>
                 </button>
@@ -293,7 +319,7 @@
       renderCards();
     }
 
-    /* --- 編輯功能邏輯 (Edit Modal Handlers) --- */
+    /* --- 編輯與持久化儲存邏輯 --- */
     function openEditModal(id) {
       selectedCardId = id;
       const card = cards.find(c => c.id === id);
@@ -314,6 +340,7 @@
         card.code = document.getElementById('edit-code').value.trim();
         card.balance = parseInt(document.getElementById('edit-balance').value, 10) || 0;
 
+        saveCardsToStorage(); // 儲存至 localStorage
         renderCards();
         closeModal('edit-modal');
       }
@@ -322,12 +349,13 @@
     function handleDeleteCard() {
       if (confirm('確定要刪除這張商品卡嗎？此動作無法復原。')) {
         cards = cards.filter(c => c.id !== selectedCardId);
+        saveCardsToStorage(); // 儲存至 localStorage
         renderCards();
         closeModal('edit-modal');
       }
     }
 
-    /* --- 結帳與彈窗邏輯 --- */
+    /* --- 結帳與扣款邏輯 --- */
     function openPayModal(id) {
       selectedCardId = id;
       const card = cards.find(c => c.id === id);
@@ -365,6 +393,7 @@
       const card = cards.find(c => c.id === selectedCardId);
       if (card) {
         card.balance = Math.max(0, card.balance - amount);
+        saveCardsToStorage(); // 儲存至 localStorage
         renderCards();
         closeModal('pay-modal');
       }
@@ -390,6 +419,7 @@
         balance: 500,
         date: new Date().toISOString().split('T')[0]
       });
+      saveCardsToStorage(); // 儲存至 localStorage
       renderCards();
       closeModal('scan-modal');
     }
@@ -416,6 +446,7 @@
         });
       });
 
+      saveCardsToStorage(); // 儲存至 localStorage
       renderCards();
       e.target.value = '';
     }
