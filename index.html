@@ -1,15 +1,15 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>商品卡便捷管理系統</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>超商商品卡便捷管理系統</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- JsBarcode library for rendering 1D barcodes -->
   <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
   <!-- FontAwesome Icons -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <style>
     svg { image-rendering: pixelated; }
   </style>
@@ -23,7 +23,7 @@
         <i class="fa-solid fa-wallet text-2xl text-indigo-200"></i>
         <div>
           <h1 class="text-xl font-bold tracking-wide">商品卡數位管家</h1>
-          <p class="text-xs text-indigo-200">即時掃描 · 智慧分類 · 本地自動儲存</p>
+          <p class="text-xs text-indigo-200">即時掃描 · 原格式還原 · 本地自動儲存</p>
         </div>
       </div>
       <!-- Total Balance Display -->
@@ -47,7 +47,7 @@
         <i class="fa-solid fa-file-image text-lg"></i>
         <span>照片批次匯入商品卡</span>
       </button>
-      <input type="file" id="batch-file-input" accept="image/*" multiple class="hidden" onchange="handleFileSelect(event)">
+      <input type="file" id="batch-file-input" accept="image/*" multiple class="hidden" onchange="handleFileSelect(event)" />
     </div>
 
     <!-- Category Filter Tabs -->
@@ -77,6 +77,14 @@
       <i class="fa-solid fa-credit-card text-5xl mb-3"></i>
       <p class="text-base font-medium">尚無相關商品卡記錄</p>
     </div>
+
+    <!-- Redemption debug list (可移除) -->
+    <div class="max-w-4xl mx-auto px-4 py-2">
+      <details class="text-sm text-slate-500">
+        <summary class="cursor-pointer">最近扣款記錄（debug）</summary>
+        <ul id="redemption-list" class="mt-2"></ul>
+      </details>
+    </div>
   </main>
 
   <!-- Checkout / Pay Modal -->
@@ -86,14 +94,17 @@
         <i class="fa-solid fa-xmark text-xl"></i>
       </button>
       <div class="text-center">
-        <span id="modal-store-badge" class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider text-white inline-block mb-2">7-ELEVEN</span>
+        <span id="modal-store-badge" class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider text-white inline-block mb-1">7-ELEVEN</span>
         <h3 class="text-lg font-bold text-slate-800">出示條碼結帳</h3>
         <p class="text-xs text-slate-500 mt-0.5">請將條碼對準超商刷卡機</p>
       </div>
 
       <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 my-4 flex flex-col items-center justify-center">
         <svg id="pay-barcode" class="w-full h-24 max-w-xs"></svg>
-        <span id="pay-card-num" class="text-sm font-mono tracking-widest text-slate-600 mt-2"></span>
+        <div class="flex items-center space-x-2 mt-2">
+          <span id="pay-card-num" class="text-sm font-mono tracking-widest text-slate-700 font-bold"></span>
+          <span id="pay-barcode-format" class="text-[10px] bg-indigo-100 text-indigo-700 font-semibold px-2 py-0.5 rounded-full uppercase">CODE128</span>
+        </div>
       </div>
 
       <div class="space-y-4">
@@ -106,7 +117,7 @@
           <div>
             <label class="block text-xs font-semibold text-slate-600 mb-1">輸入本次消費扣款金額 (NT$)</label>
             <div class="relative">
-              <input type="number" id="deduct-amount" min="1" required placeholder="例如：45" class="w-full pl-8 pr-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none font-semibold">
+              <input type="number" id="deduct-amount" min="1" required placeholder="例如：45" class="w-full pl-8 pr-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none font-semibold" />
               <span class="absolute left-3 top-2.5 text-slate-400">$</span>
             </div>
           </div>
@@ -146,12 +157,23 @@
 
         <div>
           <label class="block text-xs font-semibold text-slate-600 mb-1">一維條碼 / 卡號</label>
-          <input type="text" id="edit-code" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-mono tracking-wide">
+          <input type="text" id="edit-code" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-mono tracking-wide" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">原始條碼格式</label>
+          <select id="edit-format" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-mono text-sm">
+            <option value="EAN13">EAN-13 (13位數字)</option>
+            <option value="EAN8">EAN-8 (8位數字)</option>
+            <option value="CODE128">CODE128 (萬用數位與英文)</option>
+            <option value="CODE39">CODE39 (傳統數字字母)</option>
+            <option value="UPC">UPC (美規條碼)</option>
+          </select>
         </div>
 
         <div>
           <label class="block text-xs font-semibold text-slate-600 mb-1">卡片餘額 (NT$)</label>
-          <input type="number" id="edit-balance" min="0" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-slate-800">
+          <input type="number" id="edit-balance" min="0" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-slate-800" />
         </div>
 
         <div class="pt-2 flex space-x-3">
@@ -166,7 +188,7 @@
     </div>
   </div>
 
-  <!-- 新增：批次匯入設定彈窗 (Batch Config Modal) -->
+  <!-- 批次匯入設定彈窗 -->
   <div id="batch-modal" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
     <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl relative">
       <button onclick="closeModal('batch-modal')" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1">
@@ -198,7 +220,7 @@
         <div>
           <label class="block text-xs font-semibold text-slate-600 mb-1">設定每張商品卡金額 (NT$)</label>
           <div class="relative">
-            <input type="number" id="batch-balance" min="0" placeholder="留空則自動隨機設定 ($200~$500)" class="w-full pl-8 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-semibold">
+            <input type="number" id="batch-balance" min="0" placeholder="留空則自動隨機設定 ($200~$500)" class="w-full pl-8 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-semibold" />
             <span class="absolute left-3 top-2 text-slate-400">$</span>
           </div>
           <p class="text-[11px] text-slate-400 mt-1">若這批卡片金額皆相同（例如：都是 $500），請直接在此輸入。</p>
@@ -227,299 +249,806 @@
         <i class="fa-solid fa-barcode"></i>
       </div>
       <h3 class="text-lg font-bold text-slate-800 mb-1">相機條碼掃描</h3>
-      <p class="text-xs text-slate-500 mb-4">將超商商品卡一維條碼置於框內即可自動識別</p>
+      <p class="text-xs text-slate-500 mb-4">將超商商品卡一維條碼置於框內即可自動識別原格式</p>
+
+      <!-- 動態鏡頭容器 -->
       <div class="relative bg-slate-900 rounded-xl h-48 flex items-center justify-center overflow-hidden border-2 border-indigo-500/50 mb-4">
-        <div class="absolute inset-x-8 border-t-2 border-red-500 animate-pulse shadow-lg"></div>
-        <p class="text-xs text-slate-400 z-10 bg-slate-900/80 px-3 py-1 rounded">尋找一維條碼中...</p>
+        <video id="camera-video" autoplay playsinline class="w-full h-full object-cover"></video>
+        <div class="absolute inset-x-8 border-t-2 border-red-500 animate-pulse shadow-lg pointer-events-none"></div>
+        <p id="camera-status" class="absolute text-xs text-slate-400 z-10 bg-slate-900/80 px-3 py-1 rounded pointer-events-none">正在初始化攝影機...</p>
       </div>
+
       <button onclick="simulateCameraScanSuccess()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-lg font-medium text-sm transition">
-        模擬成功掃描卡片
+        擷取畫面並建立卡片
       </button>
     </div>
   </div>
 
   <script>
-    const defaultCards = [
-      { id: '1', store: '7-11', code: '7110982341', balance: 350, date: '2026-03-10' },
-      { id: '2', store: 'FamilyMart', code: '5900128473', balance: 120, date: '2026-03-12' },
-      { id: '3', store: 'Hi-Life', code: '4710382910', balance: 0, date: '2026-02-28' },
-      { id: '4', store: 'OKMart', code: '4719001122', balance: 200, date: '2026-03-15' }
-    ];
+  const STORAGE_KEY = 'convenience_store_cards';
+  const REDEMPTION_KEY = 'convenience_store_redemptions';
+  const LOCK_KEY = 'convenience_store_lock';
 
-    let cards = [];
-    let currentFilter = 'all';
-    let selectedCardId = null;
-    let pendingBatchFiles = []; // 暫存選取的手機相片
+  // BarcodeDetector 優先（若瀏覽器支援）
+  let barcodeDetector = null;
+  if ('BarcodeDetector' in window) {
+    const supportedFormats = ['ean_13','ean_8','code_128','code_39','upc_a','upc_e'];
+    try {
+      barcodeDetector = new BarcodeDetector({ formats: supportedFormats });
+      console.info('使用原生 BarcodeDetector:', supportedFormats);
+    } catch (e) {
+      console.warn('BarcodeDetector 初始化失敗，回退至模擬:', e);
+      barcodeDetector = null;
+    }
+  } else {
+    console.warn('BarcodeDetector 不支援，將回退到模擬流程或加入第三方 library（建議引入 zxing/quagga）');
+  }
 
-    const storeConfigs = {
-      '7-11': { name: '7-ELEVEN', badge: 'bg-emerald-600' },
-      'FamilyMart': { name: '全家 FamilyMart', badge: 'bg-blue-600' },
-      'Hi-Life': { name: '萊爾富 Hi-Life', badge: 'bg-red-600' },
-      'OKMart': { name: 'OK Mart', badge: 'bg-rose-700' }
-    };
+  // 預設資料（注意：format 改為 originalFormat 的使用方式）
+  const defaultCards = [
+    { id: '1', store: '7-11', code: '4710088432109', originalFormat: 'EAN13', balance: 350, date: '2026-03-10' },
+    { id: '2', store: 'FamilyMart', code: '5900128473', originalFormat: 'CODE128', balance: 120, date: '2026-03-12' },
+    { id: '3', store: 'Hi-Life', code: '4710382910', originalFormat: 'CODE128', balance: 0, date: '2026-02-28' },
+    { id: '4', store: 'OKMart', code: '4719001122', originalFormat: 'CODE128', balance: 200, date: '2026-03-15' }
+  ];
 
-    document.addEventListener('DOMContentLoaded', () => { 
-      loadCardsFromStorage();
-      renderCards(); 
-    });
+  let cards = [];
+  let currentFilter = 'all';
+  let selectedCardId = null;
+  let pendingBatchFiles = [];
+  let cameraStream = null;
+  let cameraDetectLoop = null;
 
-    function loadCardsFromStorage() {
-      const savedCards = localStorage.getItem('convenience_store_cards');
-      if (savedCards) {
-        try {
-          cards = JSON.parse(savedCards);
-        } catch (e) {
-          cards = [...defaultCards];
+  const storeConfigs = {
+    '7-11': { name: '7-ELEVEN', badge: 'bg-emerald-600' },
+    'FamilyMart': { name: '全家 FamilyMart', badge: 'bg-blue-600' },
+    'Hi-Life': { name: '萊爾富 Hi-Life', badge: 'bg-red-600' },
+    'OKMart': { name: 'OK Mart', badge: 'bg-rose-700' }
+  };
+
+  function detectBarcodeFormat(code) {
+    if (typeof code !== 'string') code = String(code || '');
+    const cleanCode = code.trim();
+    if (/^\d{13}$/.test(cleanCode)) return 'EAN13';
+    if (/^\d{8}$/.test(cleanCode)) return 'EAN8';
+    if (/^\d{12}$/.test(cleanCode)) return 'UPC';
+    if (/^[A-Z0-9\-\.\ \$\/\+\%]+$/i.test(cleanCode)) return 'CODE39';
+    return 'CODE128';
+  }
+
+  const safeStorage = {
+    memoryStore: {},
+    getItem(key) {
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          return window.localStorage.getItem(key);
         }
-      } else {
-        cards = [...defaultCards];
-        saveCardsToStorage();
+      } catch (e) {
+        console.warn('LocalStorage 讀取失敗，改用記憶體暫存:', e);
+      }
+      return this.memoryStore[key] || null;
+    },
+    setItem(key, value) {
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem(key, value);
+          return;
+        }
+      } catch (e) {
+        console.warn('LocalStorage 寫入失敗，改用記憶體暫存:', e);
+      }
+      this.memoryStore[key] = String(value);
+    },
+    removeItem(key) {
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.removeItem(key);
+          return;
+        }
+      } catch (e) {}
+      delete this.memoryStore[key];
+    }
+  };
+
+  document.addEventListener('DOMContentLoaded', () => {
+    loadCardsFromStorage();
+    renderCards();
+    renderRedemptions();
+  });
+
+  function loadCardsFromStorage() {
+    const savedData = safeStorage.getItem(STORAGE_KEY);
+    if (savedData) {
+      try {
+        const parsed = JSON.parse(savedData);
+        if (Array.isArray(parsed)) {
+          cards = parsed.map(c => ({
+            ...c,
+            code: (c.code === undefined || c.code === null) ? '' : String(c.code),
+            originalFormat: c.originalFormat || null
+          }));
+          return;
+        }
+      } catch (e) {
+        console.error('格式錯誤，回復為預設值:', e);
       }
     }
+    cards = defaultCards.map(c => ({ ...c, code: String(c.code), originalFormat: c.originalFormat || null }));
+    saveCardsToStorage();
+  }
 
-    function saveCardsToStorage() {
-      localStorage.setItem('convenience_store_cards', JSON.stringify(cards));
+  function saveCardsToStorage() {
+    try {
+      const normalized = cards.map(c => ({
+        ...c,
+        code: (c.code === undefined || c.code === null) ? '' : String(c.code),
+        balance: Number(c.balance) || 0,
+        originalFormat: c.originalFormat || null
+      }));
+      safeStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+    } catch (e) {
+      console.error('儲存失敗:', e);
+    }
+  }
+
+  function loadRedemptions() {
+    try {
+      const raw = safeStorage.getItem(REDEMPTION_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      console.error('讀取 redemption 失敗', e);
+      return [];
+    }
+  }
+
+  function saveRedemptions(redeems) {
+    try {
+      safeStorage.setItem(REDEMPTION_KEY, JSON.stringify(redeems || []));
+    } catch (e) {
+      console.error('儲存 redemption 失敗', e);
+    }
+  }
+
+  function renderRedemptions() {
+    const listEl = document.getElementById('redemption-list');
+    if (!listEl) return;
+    const items = loadRedemptions().slice(-20).reverse();
+    listEl.innerHTML = items.map(r => `<li class="py-1 text-xs">${r.ts} - 卡:${r.cardId} - 扣款:NT$${r.amount} - id:${r.idempotencyKey}</li>`).join('');
+  }
+
+  function generateUUID() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      const r = Math.random()*16|0, v = c === 'x' ? r : (r&0x3|0x8);
+      return v.toString(16);
+    });
+  }
+
+  async function acquireLock(ownerId, ttl = 3000, retries = 6, waitMs = 200) {
+    for (let i=0; i<retries; i++) {
+      const now = Date.now();
+      const lockRaw = safeStorage.getItem(LOCK_KEY);
+      let lock = null;
+      try { lock = lockRaw ? JSON.parse(lockRaw) : null; } catch(e){ lock = null; }
+      if (!lock || !lock.expires || lock.expires < now) {
+        const newLock = { owner: ownerId, expires: now + ttl };
+        safeStorage.setItem(LOCK_KEY, JSON.stringify(newLock));
+        const check = safeStorage.getItem(LOCK_KEY);
+        try {
+          const parsed = check ? JSON.parse(check) : null;
+          if (parsed && parsed.owner === ownerId) {
+            return true;
+          }
+        } catch(e){}
+      }
+      await new Promise(res => setTimeout(res, waitMs));
+    }
+    return false;
+  }
+
+  function releaseLock(ownerId) {
+    try {
+      const lockRaw = safeStorage.getItem(LOCK_KEY);
+      if (!lockRaw) { safeStorage.removeItem(LOCK_KEY); return; }
+      const lock = JSON.parse(lockRaw);
+      if (lock.owner === ownerId) {
+        safeStorage.removeItem(LOCK_KEY);
+      }
+    } catch(e){
+      safeStorage.removeItem(LOCK_KEY);
+    }
+  }
+
+  async function updateCardBalanceAtomic(cardId, amount, idempotencyKey=null) {
+    if (!idempotencyKey) idempotencyKey = generateUUID();
+    if (!Number.isFinite(amount) || amount <= 0) throw new Error('Invalid amount');
+
+    const ownerId = generateUUID();
+    const got = await acquireLock(ownerId, 4000, 8, 150);
+    if (!got) {
+      throw new Error('無法取得鎖（請稍後再試）');
     }
 
-    function renderCards() {
-      const grid = document.getElementById('card-grid');
-      const emptyState = document.getElementById('empty-state');
-      grid.innerHTML = '';
+    try {
+      const redemptions = loadRedemptions();
+      if (redemptions.some(r => r.idempotencyKey === idempotencyKey)) {
+        return { status: 'already_processed' };
+      }
 
-      const filtered = cards.filter(c => currentFilter === 'all' || c.store === currentFilter);
-      emptyState.classList.toggle('hidden', filtered.length > 0);
+      const rawCards = safeStorage.getItem(STORAGE_KEY);
+      const parsed = rawCards ? JSON.parse(rawCards) : [];
+      const localCards = Array.isArray(parsed) ? parsed : [];
 
-      filtered.forEach(card => {
-        const isDepleted = card.balance <= 0;
-        const config = storeConfigs[card.store] || storeConfigs['7-11'];
+      const idx = localCards.findIndex(c => String(c.id) === String(cardId));
+      if (idx === -1) throw new Error('找不到指定卡片');
 
-        const cardEl = document.createElement('div');
-        cardEl.className = `bg-white rounded-2xl shadow-sm border ${isDepleted ? 'border-slate-300 grayscale opacity-75' : 'border-slate-200'} p-5 relative transition duration-200 hover:shadow-md flex flex-col justify-between overflow-hidden`;
+      const card = localCards[idx];
+      const currentBalance = Number(card.balance) || 0;
+      if (currentBalance < amount) {
+        throw new Error('餘額不足');
+      }
 
-        cardEl.innerHTML = `
-          <div>
-            <div class="flex justify-between items-start mb-3">
-              <span class="px-2.5 py-1 rounded-md text-xs font-bold text-white ${config.badge}">
-                ${config.name}
-              </span>
-              <div class="flex items-center space-x-2">
-                ${isDepleted ? `<span class="bg-slate-700 text-white text-xs px-2.5 py-0.5 rounded-full font-bold">已用完</span>` : ''}
-                <button onclick="openEditModal('${card.id}')" title="編輯卡片" class="text-slate-400 hover:text-indigo-600 p-1 transition">
-                  <i class="fa-solid fa-pen-to-square"></i>
-                </button>
-              </div>
-            </div>
+      localCards[idx] = { ...card, balance: Math.max(0, currentBalance - amount) };
 
-            <div class="bg-slate-50 border border-slate-100 rounded-xl p-3 my-2 flex flex-col items-center">
-              <svg id="barcode-${card.id}" class="w-full h-16"></svg>
-              <span class="text-xs font-mono text-slate-500 tracking-wider mt-1">${card.code}</span>
-            </div>
-          </div>
+      const newRedemption = {
+        idempotencyKey,
+        cardId: String(cardId),
+        amount: Number(amount),
+        ts: new Date().toISOString()
+      };
+      redemptions.push(newRedemption);
 
-          <div class="mt-4 pt-3 border-t border-slate-100 flex justify-between items-center">
-            <div>
-              <span class="text-xs text-slate-400 block">剩餘金額</span>
-              <span class="text-xl font-black ${isDepleted ? 'text-slate-500 line-through' : 'text-slate-800'}">
-                NT$ ${card.balance}
-              </span>
-            </div>
-            
-            <button onclick="openPayModal('${card.id}')" ${isDepleted ? 'disabled' : ''} 
-              class="px-4 py-2 text-sm font-bold rounded-lg ${isDepleted ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm'} transition">
-              <i class="fa-solid fa-qrcode mr-1"></i> 結帳
-            </button>
-          </div>
-        `;
+      safeStorage.setItem(STORAGE_KEY, JSON.stringify(localCards));
+      saveRedemptions(redemptions);
 
-        grid.appendChild(cardEl);
+      cards = localCards;
+      renderRedemptions();
+      return { status: 'ok', redemption: newRedemption, card: localCards[idx] };
+    } finally {
+      releaseLock(ownerId);
+    }
+  }
 
-        JsBarcode(`#barcode-${card.id}`, card.code, {
+  function safeRenderBarcode(selector, code, originalFormat, options = {}) {
+    const renderFormat = originalFormat || detectBarcodeFormat(code);
+    try {
+      JsBarcode(selector, String(code), {
+        format: renderFormat,
+        height: options.height || 40,
+        displayValue: false,
+        margin: 0,
+        lineColor: options.lineColor || "#0f172a"
+      });
+    } catch (e) {
+      console.warn(`[${renderFormat}] 渲染失敗，切換至 CODE128 備援:`, e);
+      try {
+        JsBarcode(selector, String(code), {
           format: "CODE128",
-          height: 40,
+          height: options.height || 40,
           displayValue: false,
           margin: 0,
-          lineColor: isDepleted ? "#64748b" : "#0f172a"
+          lineColor: options.lineColor || "#0f172a"
         });
-      });
+      } catch (err) {
+        console.error('條碼繪製完全失敗:', err);
+      }
+    }
+  }
 
-      calculateTotalBalance();
+  function escapeHtml(unsafe) {
+    return String(unsafe)
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#039;');
+  }
+
+  function classifyStoreByBarcode(code) {
+    const s = String(code || '');
+    if (s.startsWith('711') || s.startsWith('471')) return '7-11';
+    if (s.startsWith('590')) return 'FamilyMart';
+    if (s.startsWith('4710')) return 'Hi-Life';
+    return 'OKMart';
+  }
+  function defaultBalanceForStore(store) {
+    switch (store) {
+      case '7-11': return 500;
+      case 'FamilyMart': return 300;
+      case 'Hi-Life': return 200;
+      case 'OKMart': return 250;
+      default: return 200;
+    }
+  }
+  function classifyCardIfNeeded(card) {
+    if (!card) return;
+    if (card._classified) return;
+    if (!card.store || card.store === 'unknown') {
+      card.store = classifyStoreByBarcode(card.code);
+    }
+    if (card.balance === undefined || card.balance === null) {
+      card.balance = defaultBalanceForStore(card.store);
+    }
+    card._classified = true;
+  }
+
+  function renderCards() {
+    const grid = document.getElementById('card-grid');
+    const emptyState = document.getElementById('empty-state');
+    if (!grid || !emptyState) return;
+
+    const filtered = cards.filter(c => currentFilter === 'all' || c.store === currentFilter);
+    if (currentFilter !== 'all') {
+      filtered.forEach(c => classifyCardIfNeeded(c));
+      saveCardsToStorage();
     }
 
-    function calculateTotalBalance() {
-      const total = cards.filter(c => c.balance > 0).reduce((sum, c) => sum + c.balance, 0);
-      document.getElementById('total-balance').innerText = `NT$ ${total.toLocaleString()}`;
+    grid.innerHTML = '';
+    emptyState.classList.toggle('hidden', filtered.length > 0);
+
+    filtered.forEach(card => {
+      const isDepleted = Number(card.balance) <= 0;
+      const config = storeConfigs[card.store] || storeConfigs['7-11'];
+
+      const cardEl = document.createElement('div');
+      cardEl.className = `bg-white rounded-2xl shadow-sm border ${isDepleted ? 'border-slate-300 grayscale opacity-75' : 'border-slate-200'} p-5 relative transition duration-200 hover:shadow-md flex flex-col justify-between overflow-hidden`;
+
+      const codeText = String(card.code || '');
+      const displayFormat = card.originalFormat || detectBarcodeFormat(codeText);
+
+      cardEl.innerHTML = `
+        <div>
+          <div class="flex justify-between items-start mb-3">
+            <span class="px-2.5 py-1 rounded-md text-xs font-bold text-white ${config.badge}">
+              ${config.name}
+            </span>
+            <div class="flex items-center space-x-2">
+              ${isDepleted ? `<span class="bg-slate-700 text-white text-xs px-2.5 py-0.5 rounded-full font-bold">已用完</span>` : ''}
+              <button onclick="openEditModal('${card.id}')" title="編輯卡片" class="text-slate-400 hover:text-indigo-600 p-1 transition">
+                <i class="fa-solid fa-pen-to-square"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="bg-slate-50 border border-slate-100 rounded-xl p-3 my-2 flex flex-col items-center">
+            <svg id="barcode-${card.id}" class="w-full h-16"></svg>
+            <div class="flex items-center space-x-1.5 mt-1.5">
+              <span class="text-xs font-mono text-slate-500 tracking-wider">${escapeHtml(codeText)}</span>
+              <span class="text-[9px] bg-slate-200 text-slate-600 px-1.5 py-0.2 rounded font-semibold uppercase">${displayFormat}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-4 pt-3 border-t border-slate-100 flex justify-between items-center">
+          <div>
+            <span class="text-xs text-slate-400 block">剩餘金額</span>
+            <span class="text-xl font-black ${isDepleted ? 'text-slate-500 line-through' : 'text-slate-800'}">
+              NT$ ${Number(card.balance).toLocaleString()}
+            </span>
+          </div>
+          
+          <button onclick="openPayModal('${card.id}')" ${isDepleted ? 'disabled' : ''} 
+            class="px-4 py-2 text-sm font-bold rounded-lg ${isDepleted ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm'} transition">
+            <i class="fa-solid fa-qrcode mr-1"></i> 結帳
+          </button>
+        </div>
+      `;
+
+      grid.appendChild(cardEl);
+
+      safeRenderBarcode(`#barcode-${card.id}`, codeText, displayFormat, {
+        height: 40,
+        lineColor: isDepleted ? "#64748b" : "#0f172a"
+      });
+    });
+
+    calculateTotalBalance();
+  }
+
+  function calculateTotalBalance() {
+    const total = cards.filter(c => Number(c.balance) > 0).reduce((sum, c) => sum + (Number(c.balance) || 0), 0);
+    const totalEl = document.getElementById('total-balance');
+    if (totalEl) {
+      totalEl.innerText = `NT$ ${total.toLocaleString()}`;
+    }
+  }
+
+  function setFilter(store) {
+    currentFilter = store;
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.classList.remove('bg-indigo-600', 'text-white', 'shadow-sm');
+      btn.classList.add('bg-white', 'text-slate-600', 'border', 'border-slate-200');
+    });
+
+    const activeBtn = document.getElementById(`tab-${store}`);
+    if (activeBtn) {
+      activeBtn.classList.remove('bg-white', 'text-slate-600', 'border', 'border-slate-200');
+      activeBtn.classList.add('bg-indigo-600', 'text-white', 'shadow-sm');
     }
 
-    function setFilter(store) {
-      currentFilter = store;
-      document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.classList.remove('bg-indigo-600', 'text-white', 'shadow-sm');
-        btn.classList.add('bg-white', 'text-slate-600', 'border', 'border-slate-200');
+    if (store !== 'all') {
+      cards.forEach(c => {
+        if (!c._classified) classifyCardIfNeeded(c);
       });
+      saveCardsToStorage();
+    }
 
-      const activeBtn = document.getElementById(`tab-${store}`);
-      if (activeBtn) {
-        activeBtn.classList.remove('bg-white', 'text-slate-600', 'border', 'border-slate-200');
-        activeBtn.classList.add('bg-indigo-600', 'text-white', 'shadow-sm');
+    renderCards();
+  }
+
+  /* --- 相機條碼掃描（改成連續偵測，僅接受完整顯示的條碼） --- */
+  async function openScanModal() {
+    document.getElementById('scan-modal').classList.remove('hidden');
+    const video = document.getElementById('camera-video');
+    const statusText = document.getElementById('camera-status');
+    
+    statusText.innerText = "正在取得相機權限...";
+
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error("瀏覽器不支援相機存取功能");
       }
 
-      renderCards();
+      cameraStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" } },
+        audio: false
+      });
+
+      video.srcObject = cameraStream;
+      statusText.innerText = "尋找一維條碼中...";
+
+      if (barcodeDetector) {
+        startCameraDetectLoop();
+      } else {
+        console.warn('BarcodeDetector 不支援：掃描會使用模擬按鈕 simulateCameraScanSuccess()');
+        statusText.innerText = "裝置不支援 BarcodeDetector，請使用「擷取畫面並建立卡片」模擬功能或在支援的瀏覽器上使用";
+      }
+    } catch (err) {
+      console.error("無法開啟攝影機:", err);
+      statusText.innerText = "相機開啟失敗，請確認權限設定";
+    }
+  }
+
+  function stopCamera() {
+    if (cameraDetectLoop) {
+      clearInterval(cameraDetectLoop);
+      cameraDetectLoop = null;
+    }
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop());
+      cameraStream = null;
+    }
+    const video = document.getElementById('camera-video');
+    if (video) video.srcObject = null;
+  }
+
+  function startCameraDetectLoop() {
+    const video = document.getElementById('camera-video');
+    const statusText = document.getElementById('camera-status');
+    if (!video) return;
+
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+
+    cameraDetectLoop = setInterval(async () => {
+      try {
+        if (!video.videoWidth || !video.videoHeight) return;
+
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        const detections = await barcodeDetector.detect(canvas);
+        if (!detections || detections.length === 0) {
+          statusText.innerText = "尋找一維條碼中...";
+          return;
+        }
+
+        const margin = Math.max(2, Math.floor(Math.min(canvas.width, canvas.height) * 0.01));
+        const fullResults = detections.filter(d => {
+          const b = d.boundingBox;
+          if (!b) return false;
+          return (b.x >= margin && b.y >= margin && (b.x + b.width) <= (canvas.width - margin) && (b.y + b.height) <= (canvas.height - margin));
+        });
+
+        if (fullResults.length === 0) {
+          statusText.innerText = "發現條碼，但都非完整顯示，請調整角度或距離";
+          return;
+        }
+
+        const picked = fullResults[0];
+        const code = String(picked.rawValue || '');
+        const originalFormat = (picked.format && String(picked.format).toUpperCase()) || detectBarcodeFormat(code);
+
+        const newCard = {
+          id: Date.now().toString(),
+          store: null,
+          code: code,
+          originalFormat: originalFormat,
+          balance: null,
+          date: new Date().toISOString().split('T')[0]
+        };
+        cards.unshift(newCard);
+        saveCardsToStorage();
+        renderCards();
+
+        stopCamera();
+        closeModal('scan-modal');
+      } catch (e) {
+        console.error('camera detect error', e);
+      }
+    }, 500);
+  }
+
+  function simulateCameraScanSuccess() {
+    const mockCode = '471' + String(Math.floor(100000000 + Math.random() * 900000000));
+    const originalFormat = detectBarcodeFormat(mockCode);
+    const newCard = {
+      id: Date.now().toString(),
+      store: null,
+      code: String(mockCode),
+      originalFormat: originalFormat,
+      balance: null,
+      date: new Date().toISOString().split('T')[0]
+    };
+
+    cards.unshift(newCard);
+    saveCardsToStorage();
+    renderCards();
+    closeModal('scan-modal');
+  }
+
+  /* --- 批次匯入：對每張照片偵測條碼，僅使用完整顯示的條碼 --- */
+  function triggerFileInput() {
+    const fileInput = document.getElementById('batch-file-input');
+    if (fileInput) fileInput.click();
+  }
+
+  function handleFileSelect(e) {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    pendingBatchFiles = Array.from(files);
+    const textEl = document.getElementById('batch-file-count-text');
+    const balanceEl = document.getElementById('batch-balance');
+    const storeEl = document.getElementById('batch-store');
+
+    if (textEl) textEl.innerText = `已選取 ${pendingBatchFiles.length} 張照片`;
+    if (balanceEl) balanceEl.value = '';
+    if (storeEl) storeEl.value = 'auto';
+
+    const modal = document.getElementById('batch-modal');
+    if (modal) modal.classList.remove('hidden');
+  }
+
+  function createImageBitmapFromFile(file) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = (e) => reject(e);
+      img.src = URL.createObjectURL(file);
+    });
+  }
+
+  function isBoundingBoxFullyVisible(bbox, canvasWidth, canvasHeight, margin=2) {
+    if (!bbox) return false;
+    return (bbox.x >= margin &&
+            bbox.y >= margin &&
+            (bbox.x + bbox.width) <= (canvasWidth - margin) &&
+            (bbox.y + bbox.height) <= (canvasHeight - margin));
+  }
+
+  async function detectBarcodesInImageElement(imgElement) {
+    const canvas = document.createElement('canvas');
+    canvas.width = imgElement.naturalWidth || imgElement.width;
+    canvas.height = imgElement.naturalHeight || imgElement.height;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(imgElement, 0, 0, canvas.width, canvas.height);
+
+    if (!barcodeDetector) {
+      console.warn('BarcodeDetector 不可用，跳過實際偵測。建議引入 zxing / quagga');
+      return [];
     }
 
-    /* --- 批次匯入全新邏輯 --- */
-    function triggerFileInput() {
-      document.getElementById('batch-file-input').click();
+    try {
+      const detections = await barcodeDetector.detect(canvas);
+      const margin = Math.max(2, Math.floor(Math.min(canvas.width, canvas.height) * 0.01));
+      const full = detections.filter(d => isBoundingBoxFullyVisible(d.boundingBox, canvas.width, canvas.height, margin));
+      return full.map(d => ({
+        rawValue: String(d.rawValue || ''),
+        format: (d.format || '').toUpperCase(),
+        boundingBox: d.boundingBox
+      }));
+    } catch (e) {
+      console.error('圖片偵測失敗', e);
+      return [];
     }
+  }
 
-    function handleFileSelect(e) {
-      const files = e.target.files;
-      if (!files || files.length === 0) return;
+  async function executeBatchImport(e) {
+    e.preventDefault();
+    if (pendingBatchFiles.length === 0) return;
 
-      pendingBatchFiles = Array.from(files);
-      document.getElementById('batch-file-count-text').innerText = `已選取 ${pendingBatchFiles.length} 張照片`;
-      document.getElementById('batch-balance').value = ''; // 清空預設輸入
-      document.getElementById('batch-store').value = 'auto'; // 預設自動
+    const selectedStore = document.getElementById('batch-store').value;
+    const customBalanceInput = document.getElementById('batch-balance').value;
+    const parsedBalance = customBalanceInput !== '' ? parseInt(customBalanceInput, 10) : null;
 
-      document.getElementById('batch-modal').classList.remove('hidden');
-    }
-
-    function executeBatchImport(e) {
-      e.preventDefault();
-      if (pendingBatchFiles.length === 0) return;
-
-      const selectedStore = document.getElementById('batch-store').value;
-      const customBalanceInput = document.getElementById('batch-balance').value;
-      const parsedBalance = customBalanceInput !== '' ? parseInt(customBalanceInput, 10) : null;
-
+    if (!barcodeDetector) {
+      console.warn('Browser 不支援 BarcodeDetector，使用原模擬匯入流程');
       pendingBatchFiles.forEach((file, index) => {
-        const prefixes = ['711', '590', '4710', '4719'];
+        const prefixes = ['4710', '5900', '7110', '4719'];
         const prefix = prefixes[index % prefixes.length];
-        const generatedCode = prefix + Math.floor(1000000 + Math.random() * 9000000);
+        const generatedCode = prefix + String(Math.floor(10000000 + Math.random() * 90000000));
+        const originalFormat = detectBarcodeFormat(generatedCode);
 
-        // 超商判斷：指定超商 或 自動辨識
         const cardStore = selectedStore === 'auto' ? classifyStoreByBarcode(generatedCode) : selectedStore;
-        
-        // 金額判斷：自訂金額 或 自動隨機設定
-        const cardBalance = (parsedBalance !== null && !isNaN(parsedBalance)) ? Math.max(0, parsedBalance) : (200 + (index * 100));
+        const cardBalance = (parsedBalance !== null && !isNaN(parsedBalance)) ? Math.max(0, parsedBalance) : defaultBalanceForStore(cardStore);
 
         cards.unshift({
           id: (Date.now() + index).toString(),
           store: cardStore,
-          code: generatedCode,
+          code: String(generatedCode),
+          originalFormat,
           balance: cardBalance,
-          date: new Date().toISOString().split('T')[0]
+          date: new Date().toISOString().split('T')[0],
+          _classified: true
         });
       });
 
       saveCardsToStorage();
       renderCards();
       closeModal('batch-modal');
-      document.getElementById('batch-file-input').value = ''; // 清除 input 狀態
+      const fileInput = document.getElementById('batch-file-input');
+      if (fileInput) fileInput.value = '';
+      return;
     }
 
-    /* --- 編輯與彈窗 Handler --- */
-    function openEditModal(id) {
-      selectedCardId = id;
-      const card = cards.find(c => c.id === id);
-      if (!card) return;
+    for (let i = 0; i < pendingBatchFiles.length; i++) {
+      const file = pendingBatchFiles[i];
+      try {
+        const img = await createImageBitmapFromFile(file);
+        const detections = await detectBarcodesInImageElement(img);
+        if (!detections || detections.length === 0) {
+          console.info(`第 ${i+1} 張圖：未偵測到完整條碼，已跳過`);
+          continue;
+        }
 
-      document.getElementById('edit-store').value = card.store;
-      document.getElementById('edit-code').value = card.code;
-      document.getElementById('edit-balance').value = card.balance;
+        for (let j = 0; j < detections.length; j++) {
+          const d = detections[j];
+          const code = String(d.rawValue || '');
+          const originalFormat = d.format || detectBarcodeFormat(code);
+          const cardStore = (selectedStore === 'auto') ? null : selectedStore;
+          const cardBalance = (parsedBalance !== null && !isNaN(parsedBalance)) ? Math.max(0, parsedBalance) : null;
 
-      document.getElementById('edit-modal').classList.remove('hidden');
-    }
-
-    function handleSaveEdit(e) {
-      e.preventDefault();
-      const card = cards.find(c => c.id === selectedCardId);
-      if (card) {
-        card.store = document.getElementById('edit-store').value;
-        card.code = document.getElementById('edit-code').value.trim();
-        card.balance = parseInt(document.getElementById('edit-balance').value, 10) || 0;
-
-        saveCardsToStorage();
-        renderCards();
-        closeModal('edit-modal');
+          cards.unshift({
+            id: (Date.now() + i + j).toString(),
+            store: cardStore,
+            code: code,
+            originalFormat: originalFormat,
+            balance: cardBalance,
+            date: new Date().toISOString().split('T')[0]
+          });
+        }
+      } catch (err) {
+        console.error('處理圖片失敗，跳過：', err);
       }
     }
 
-    function handleDeleteCard() {
-      if (confirm('確定要刪除這張商品卡嗎？此動作無法復原。')) {
-        cards = cards.filter(c => c.id !== selectedCardId);
-        saveCardsToStorage();
-        renderCards();
-        closeModal('edit-modal');
-      }
+    saveCardsToStorage();
+    renderCards();
+    closeModal('batch-modal');
+
+    const fileInput = document.getElementById('batch-file-input');
+    if (fileInput) fileInput.value = '';
+  }
+
+  function openEditModal(id) {
+    selectedCardId = id;
+    const card = cards.find(c => String(c.id) === String(id));
+    if (!card) return;
+
+    document.getElementById('edit-store').value = card.store || '7-11';
+    document.getElementById('edit-code').value = String(card.code);
+    document.getElementById('edit-format').value = card.originalFormat || detectBarcodeFormat(card.code);
+    document.getElementById('edit-balance').value = Number(card.balance) || 0;
+
+    document.getElementById('edit-modal').classList.remove('hidden');
+  }
+
+  function handleSaveEdit(e) {
+    e.preventDefault();
+    const card = cards.find(c => String(c.id) === String(selectedCardId));
+    if (card) {
+      card.store = document.getElementById('edit-store').value;
+      card.code = String(document.getElementById('edit-code').value.trim());
+      card.originalFormat = document.getElementById('edit-format').value;
+      card.balance = Math.max(0, parseInt(document.getElementById('edit-balance').value, 10) || 0);
+
+      card._classified = true;
+      saveCardsToStorage();
+      renderCards();
+      closeModal('edit-modal');
+    }
+  }
+
+  function handleDeleteCard() {
+    if (confirm('確定要刪除這張商品卡嗎？此動作無法復原。')) {
+      cards = cards.filter(c => String(c.id) !== String(selectedCardId));
+      saveCardsToStorage();
+      renderCards();
+      closeModal('edit-modal');
+    }
+  }
+
+  function openPayModal(id) {
+    selectedCardId = id;
+    const card = cards.find(c => String(c.id) === String(id));
+    if (!card) return;
+
+    const tempStore = card.store || classifyStoreByBarcode(card.code);
+    const config = storeConfigs[tempStore] || storeConfigs['7-11'];
+    const badge = document.getElementById('modal-store-badge');
+    badge.innerText = config.name;
+    badge.className = `px-3 py-1 rounded-full text-xs font-bold tracking-wider text-white inline-block mb-1 ${config.badge}`;
+
+    document.getElementById('pay-card-num').innerText = String(card.code);
+    document.getElementById('pay-barcode-format').innerText = card.originalFormat || detectBarcodeFormat(card.code);
+    document.getElementById('pay-modal-balance').innerText = `NT$ ${Number(card.balance || defaultBalanceForStore(tempStore)).toLocaleString()}`;
+    document.getElementById('deduct-amount').value = '';
+
+    safeRenderBarcode("#pay-barcode", String(card.code), card.originalFormat, {
+      height: 70,
+      lineColor: "#0f172a"
+    });
+
+    document.getElementById('pay-modal').classList.remove('hidden');
+  }
+
+  function closeModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) modal.classList.add('hidden');
+    if (modalId === 'scan-modal') {
+      stopCamera();
+    }
+  }
+
+  async function handleCheckout(e) {
+    e.preventDefault();
+    const amount = parseInt(document.getElementById('deduct-amount').value, 10);
+    if (isNaN(amount) || amount <= 0) {
+      alert('請輸入有效的扣款金額');
+      return;
     }
 
-    function openPayModal(id) {
-      selectedCardId = id;
-      const card = cards.find(c => c.id === id);
-      if (!card) return;
-
-      const config = storeConfigs[card.store];
-      const badge = document.getElementById('modal-store-badge');
-      badge.innerText = config.name;
-      badge.className = `px-3 py-1 rounded-full text-xs font-bold tracking-wider text-white inline-block mb-2 ${config.badge}`;
-
-      document.getElementById('pay-card-num').innerText = card.code;
-      document.getElementById('pay-modal-balance').innerText = `NT$ ${card.balance}`;
-      document.getElementById('deduct-amount').value = '';
-
-      JsBarcode("#pay-barcode", card.code, {
-        format: "CODE128",
-        height: 70,
-        displayValue: false,
-        margin: 0,
-        lineColor: "#0f172a"
-      });
-
-      document.getElementById('pay-modal').classList.remove('hidden');
+    const card = cards.find(c => String(c.id) === String(selectedCardId));
+    if (!card) {
+      alert('找不到卡片');
+      return;
     }
 
-    function closeModal(modalId) {
-      document.getElementById(modalId).classList.add('hidden');
-    }
-
-    function handleCheckout(e) {
-      e.preventDefault();
-      const amount = parseInt(document.getElementById('deduct-amount').value, 10);
-      if (isNaN(amount) || amount <= 0) return;
-
-      const card = cards.find(c => c.id === selectedCardId);
-      if (card) {
-        card.balance = Math.max(0, card.balance - amount);
+    try {
+      const idempotencyKey = generateUUID();
+      const result = await updateCardBalanceAtomic(card.id, amount, idempotencyKey);
+      if (result.status === 'ok' || result.status === 'already_processed') {
         saveCardsToStorage();
         renderCards();
         closeModal('pay-modal');
+        if (result.status === 'ok') {
+          alert(`扣款成功：NT$ ${amount}\n新餘額：NT$ ${Number(result.card.balance).toLocaleString()}`);
+        } else {
+          alert('此交易已處理過，未重複扣款');
+        }
+      }
+    } catch (err) {
+      if (String(err.message).includes('餘額不足')) {
+        alert('餘額不足，請確認金額或使用其他付款方式');
+      } else {
+        alert('扣款失敗：' + String(err.message));
+        console.error(err);
       }
     }
-
-    function classifyStoreByBarcode(code) {
-      if (code.startsWith('711')) return '7-11';
-      if (code.startsWith('590')) return 'FamilyMart';
-      if (code.startsWith('4710')) return 'Hi-Life';
-      return 'OKMart';
-    }
-
-    function openScanModal() {
-      document.getElementById('scan-modal').classList.remove('hidden');
-    }
-
-    function simulateCameraScanSuccess() {
-      const mockCode = '711' + Math.floor(10000000 + Math.random() * 90000000);
-      cards.unshift({
-        id: Date.now().toString(),
-        store: classifyStoreByBarcode(mockCode),
-        code: mockCode,
-        balance: 500,
-        date: new Date().toISOString().split('T')[0]
-      });
-      saveCardsToStorage();
-      renderCards();
-      closeModal('scan-modal');
-    }
+  }
   </script>
 </body>
 </html>
