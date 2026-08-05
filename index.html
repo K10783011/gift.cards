@@ -15,33 +15,42 @@
     <style>
         body { background-color: #f8f9fa; }
         .card-summary { border-left: 5px solid #0d6efd; }
-        #videoContainer { max-width: 100%; max-height: 320px; display: none; position: relative; background: #000; border-radius: 8px; overflow: hidden; }
+        #videoContainer { max-width: 100%; max-height: 360px; display: none; position: relative; background: #000; border-radius: 8px; overflow: hidden; }
         video { width: 100%; height: 100%; object-fit: cover; }
         
-        /* 扁平寬矩形對焦框 */
+        /* 動態對焦定位框與雷射掃描線特效 */
         .scanner-frame {
             position: absolute;
-            top: 38%;
-            bottom: 38%;
-            left: 8%;
-            right: 8%;
+            top: 30%;
+            bottom: 30%;
+            left: 10%;
+            right: 10%;
             border: 2px solid #0d6efd;
-            background-color: rgba(13, 110, 253, 0.08);
-            border-radius: 4px;
+            background-color: rgba(13, 110, 253, 0.05);
+            border-radius: 6px;
             box-sizing: border-box;
             z-index: 4;
             pointer-events: none;
-            box-shadow: 0 0 10px rgba(13, 110, 253, 0.4);
+            box-shadow: 0 0 15px rgba(13, 110, 253, 0.5);
+        }
+        .scanner-frame::after {
+            content: "";
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: #ff4d4d;
+            box-shadow: 0 0 8px #ff4d4d;
+            animation: scanLine 2s infinite ease-in-out;
+        }
+        @keyframes scanLine {
+            0% { top: 0%; }
+            50% { top: 98%; }
+            100% { top: 0%; }
         }
         
         .barcode-box { background: #fff; padding: 15px; border-radius: 8px; display: inline-block; max-width: 100%; overflow-x: auto; }
-        
-        /* 灰階完結卡片樣式 */
-        .card-depleted {
-            filter: grayscale(100%);
-            opacity: 0.55;
-            background-color: #e9ecef !important;
-        }
+        .card-depleted { filter: grayscale(100%); opacity: 0.55; background-color: #e9ecef !important; }
     </style>
 </head>
 <body>
@@ -50,7 +59,6 @@
         <header class="pb-3 mb-4 border-bottom d-flex justify-content-between align-items-center">
             <h1 class="h4 fw-bold text-primary mb-0"><i class="bi bi-wallet2"></i> 商品卡管理系統</h1>
             <div class="d-flex gap-2">
-                <!-- 批量上傳相簿按鈕 -->
                 <label class="btn btn-outline-primary btn-sm mb-0" style="cursor: pointer;">
                     <i class="bi bi-images"></i> 相簿批量新增
                     <input type="file" id="batchImageInput" accept="image/*" multiple style="display: none;" onchange="handleBatchImages(event)">
@@ -117,9 +125,7 @@
                                 <th>操作</th>
                             </tr>
                         </thead>
-                        <tbody id="cardTableBody">
-                            <!-- 動態渲染資料 -->
-                        </tbody>
+                        <tbody id="cardTableBody"></tbody>
                     </table>
                 </div>
             </div>
@@ -138,17 +144,17 @@
                     <div class="modal-body">
                         <input type="hidden" id="cardId">
                         
-                        <!-- 高解析度相機與一維條碼圖框掃描區塊 -->
+                        <!-- 高解析度相機掃描與定位框區塊 -->
                         <div class="mb-3 p-3 bg-light rounded border text-center">
                             <button type="button" class="btn btn-outline-dark btn-sm mb-2" onclick="startScanner()">
-                                <i class="bi bi-camera-fill"></i> 開啟高畫質相機掃描
+                                <i class="bi bi-camera-fill"></i> 開啟原畫相機掃描
                             </button>
                             <div id="videoContainer" class="mt-2">
                                 <video id="interactive" muted playsinline></video>
                                 <div class="scanner-frame"></div>
                             </div>
                             <div id="scannerTip" class="text-muted small mt-1" style="display: none;">
-                                請將條碼置於藍色長框內... (<a href="#" onclick="stopScanner(); return false;" class="text-danger">關閉相機</a>)
+                                請將條碼對準藍框中央（支援 10-20cm 近距離）... (<a href="#" onclick="stopScanner(); return false;" class="text-danger">關閉相機</a>)
                             </div>
                         </div>
 
@@ -163,7 +169,7 @@
                         </div>
                         <div class="mb-3">
                             <label class="form-label">卡片名稱 / 辨識備註</label>
-                            <input type="text" class="form-control" id="cardTitleName" placeholder="例如：711禮券" required>
+                            <input type="text" class="form-control" id="cardTitleName" placeholder="例如：迎夏禮券" required>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">條碼數字編號 (供結帳出示)</label>
@@ -208,14 +214,12 @@
                     </div>
                     <p id="barcodeTextDisplay" class="font-monospace text-muted mt-1 mb-0 fw-bold" style="font-size: 1.1rem;"></p>
                     <hr class="my-3">
-                    <!-- 快速扣款區 -->
                     <div class="text-start px-2">
                         <label class="form-label fw-bold small">店員刷完後，自動計算扣款：</label>
                         <div class="input-group mb-2">
                             <span class="input-group-text">$</span>
                             <input type="number" id="quickDeductAmount" class="form-control" placeholder="輸入本次消費金額" oninput="previewAutoCalc(this)">
                         </div>
-                        <!-- 即時計算預覽提示 -->
                         <div id="calcPreviewBox" class="alert alert-info py-2 mb-3 small" style="display: none;">
                             扣款後預估剩餘：<strong id="previewRemaining" class="text-success">$0</strong>
                         </div>
@@ -246,15 +250,12 @@
 
         function parseAmountFromBarcode(barcodeText) {
             if (!barcodeText) return 100;
-            if (barcodeText.includes('0100') || (barcodeText.length === 13 && barcodeText.startsWith('9100'))) {
-                return 100;
-            }
+            if (barcodeText.includes('0100') || (barcodeText.length === 13 && barcodeText.startsWith('9100'))) return 100;
             if (barcodeText.includes('0500')) return 500;
             if (barcodeText.includes('1000')) return 1000;
             return 100;
         }
 
-        // 建立共用並加強支援多種格式的 ZXing Reader
         function getCodeReader() {
             if (!codeReader) {
                 const hints = new Map();
@@ -274,7 +275,7 @@
             return codeReader;
         }
 
-        // 批量圖片智慧解碼（含影像前處理：自動放大、增強對比，解決全家與遠距離讀取失敗問題）
+        // 批量匯入照片：採用原圖不壓縮機制，支援全家及各類商品卡高精度解碼
         async function handleBatchImages(event) {
             const files = event.target.files;
             if (!files || files.length === 0) return;
@@ -285,7 +286,7 @@
 
             for (let file of files) {
                 try {
-                    const barcodeText = await decodeImageFileWithPreprocessing(file, readerInstance);
+                    const barcodeText = await decodeImageFileOriginal(file, readerInstance);
                     if (barcodeText) {
                         let detectedStore = "7-11";
                         if (barcodeText.startsWith('9') || barcodeText.startsWith('2') || barcodeText.length === 13) {
@@ -293,11 +294,10 @@
                         }
 
                         const smartAmount = parseAmountFromBarcode(barcodeText);
-
                         const newCard = {
                             id: Date.now() + Math.random(),
                             storeName: detectedStore,
-                            cardTitleName: `批量匯入 (${barcodeText.slice(-4)})`,
+                            cardTitleName: `批量匯入卡 (${barcodeText.slice(-4)})`,
                             barcodeNumber: barcodeText,
                             initialAmount: smartAmount,
                             remainingAmount: smartAmount,
@@ -319,30 +319,14 @@
             event.target.value = '';
         }
 
-        // 影像前處理核心：縮放、提升對比，確保全家與小條碼順利辨識
-        function decodeImageFileWithPreprocessing(file, reader) {
+        function decodeImageFileOriginal(file, reader) {
             return new Promise((resolve) => {
                 const readerObj = new FileReader();
                 readerObj.onload = function(e) {
                     const img = new Image();
                     img.onload = async function() {
-                        // 建立 Canvas 進行影像增強
-                        const canvas = document.createElement('canvas');
-                        const ctx = canvas.getContext('2d');
-                        
-                        // 若圖片太小強制放大 2 倍以符合條碼辨識像素，若太大則適度限制
-                        let width = img.width;
-                        let height = img.height;
-                        const targetWidth = width < 1000 ? width * 2 : width;
-                        
-                        canvas.width = targetWidth;
-                        canvas.height = height * (targetWidth / width);
-                        
-                        // 繪製並提高對比度與清晰度
-                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                        
-                        // 嘗試方法 1：直接從原始解析度解碼
                         try {
+                            // 直接以原始高解析度載入解碼，不進行損耗性壓縮
                             const res = await reader.decodeFromImageElement(img);
                             if (res && res.text) {
                                 resolve(res.text);
@@ -350,19 +334,24 @@
                             }
                         } catch (err) {}
 
-                        // 嘗試方法 2：從處理後的 Canvas DataURL 解碼
+                        // 備用方案：透過 Canvas 放大再解析一次
                         try {
-                            const dataUrl = canvas.toDataURL('image/jpeg', 0.98);
-                            const processedImg = new Image();
-                            processedImg.onload = async function() {
+                            const canvas = document.createElement('canvas');
+                            canvas.width = img.width * 1.5;
+                            canvas.height = img.height * 1.5;
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+                            const tempImg = new Image();
+                            tempImg.onload = async function() {
                                 try {
-                                    const res2 = await reader.decodeFromImageElement(processedImg);
+                                    const res2 = await reader.decodeFromImageElement(tempImg);
                                     resolve(res2 ? res2.text : null);
                                 } catch (ex) {
                                     resolve(null);
                                 }
                             };
-                            processedImg.src = dataUrl;
+                            tempImg.src = canvas.toDataURL('image/jpeg', 1.0);
                         } catch (ex) {
                             resolve(null);
                         }
@@ -402,7 +391,7 @@
             }
         }
 
-        // 開啟高畫質相機掃描（加入強制自動對焦與高畫質解析度設定，解決 10-20 公分模糊問題）
+        // 開啟相機：原畫輸出、連續對焦、結合定位框最佳化
         async function startScanner() {
             const container = document.getElementById('videoContainer');
             const tip = document.getElementById('scannerTip');
@@ -417,13 +406,13 @@
 
                 for (const device of videoInputDevices) {
                     const label = device.label.toLowerCase();
-                    if (label.includes('back') || label.includes('rear') || label.includes('environment') || label.includes('主鏡頭')) {
+                    if (label.includes('back') || label.includes('rear') || label.includes('environment')) {
                         selectedDeviceId = device.deviceId;
                         break;
                     }
                 }
 
-                // 強制設定高畫質與連續對焦參數
+                // 設定高畫質、原相機比例、持續對焦
                 const constraints = {
                     video: {
                         deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined,
@@ -442,11 +431,8 @@
                     }
                 });
             } catch (err) {
-                console.error(err);
-                // 退回基本設定，若進階對焦不被部分舊手機支援時自動容錯
                 try {
-                    const fallbackConstraints = { video: { facingMode: "environment" } };
-                    reader.decodeFromConstraints(fallbackConstraints, 'interactive', (result) => {
+                    reader.decodeFromConstraints({ video: { facingMode: "environment" } }, 'interactive', (result) => {
                         if (result) {
                             document.getElementById('barcodeNumber').value = result.text;
                             stopScanner();
@@ -489,7 +475,6 @@
             } catch (e) {
                 console.error(e);
             }
-
             barcodeModal.show();
         }
 
@@ -593,7 +578,7 @@
             const filteredCards = cards.filter(c => !filterStore || c.storeName === filterStore);
 
             if (filteredCards.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7" class="text-muted py-4">目前沒有相關商品卡資料，請點擊右上角新增或從相簿批量匯入。</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="7" class="text-muted py-4">目前沒有商品卡資料，請點擊右上角新增或從相簿批量匯入。</td></tr>`;
             }
 
             filteredCards.forEach(card => {
@@ -610,9 +595,7 @@
                 }
 
                 const tr = document.createElement('tr');
-                if (isDepleted) {
-                    tr.classList.add('card-depleted');
-                }
+                if (isDepleted) tr.classList.add('card-depleted');
 
                 tr.innerHTML = `
                     <td>${getStoreBadge(card.storeName)}</td>
