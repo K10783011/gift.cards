@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>超商商品卡管理系統 (升級版)</title>
+    <title>超商商品卡管理系統 (專業升級版)</title>
     <!-- 引入 Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- 引入 Bootstrap Icons -->
@@ -18,35 +18,22 @@
         #videoContainer { max-width: 100%; max-height: 320px; display: none; position: relative; background: #000; border-radius: 8px; overflow: hidden; }
         video { width: 100%; height: 100%; object-fit: cover; }
         
-        /* 掃描對焦圖框與雷射線 */
+        /* 改為一維條碼長條專屬對焦框 (扁平寬矩形) */
         .scanner-frame {
             position: absolute;
-            top: 15%;
-            bottom: 15%;
-            left: 10%;
-            right: 10%;
-            border: 2px dashed rgba(255, 255, 255, 0.7);
-            border-radius: 8px;
+            top: 38%;
+            bottom: 38%;
+            left: 8%;
+            right: 8%;
+            border: 2px solid #0d6efd;
+            background-color: rgba(13, 110, 253, 0.08);
+            border-radius: 4px;
             box-sizing: border-box;
             z-index: 4;
             pointer-events: none;
+            box-shadow: 0 0 10px rgba(13, 110, 253, 0.4);
         }
-        .scanner-laser {
-            position: absolute;
-            top: 50%;
-            left: 5%;
-            right: 5%;
-            height: 2px;
-            background: #ff4d4d;
-            animation: scanning 1.5s infinite ease-in-out;
-            box-shadow: 0 0 8px #ff4d4d;
-            z-index: 5;
-        }
-        @keyframes scanning {
-            0% { top: 20%; }
-            50% { top: 80%; }
-            100% { top: 20%; }
-        }
+        
         .barcode-box { background: #fff; padding: 15px; border-radius: 8px; display: inline-block; max-width: 100%; overflow-x: auto; }
         
         /* 灰階完結卡片樣式 */
@@ -152,7 +139,7 @@
                     <div class="modal-body">
                         <input type="hidden" id="cardId">
                         
-                        <!-- 高解析度相機與對焦圖框掃描區塊 -->
+                        <!-- 高解析度相機與一維條碼圖框掃描區塊 -->
                         <div class="mb-3 p-3 bg-light rounded border text-center">
                             <button type="button" class="btn btn-outline-dark btn-sm mb-2" onclick="startScanner()">
                                 <i class="bi bi-camera-fill"></i> 開啟高畫質相機掃描
@@ -160,10 +147,9 @@
                             <div id="videoContainer" class="mt-2">
                                 <video id="interactive" muted playsinline></video>
                                 <div class="scanner-frame"></div>
-                                <div class="scanner-laser"></div>
                             </div>
                             <div id="scannerTip" class="text-muted small mt-1" style="display: none;">
-                                請將條碼對準框內線條... (<a href="#" onclick="stopScanner(); return false;" class="text-danger">關閉相機</a>)
+                                請將條碼置於藍色長框內... (<a href="#" onclick="stopScanner(); return false;" class="text-danger">關閉相機</a>)
                             </div>
                         </div>
 
@@ -173,6 +159,7 @@
                                 <option value="7-11">7-11 統一超商</option>
                                 <option value="全家">全家便利商店</option>
                                 <option value="萊爾富">萊爾富</option>
+                                <option value="OK超商">OK超商</option>
                                 <option value="其他">其他</option>
                             </select>
                         </div>
@@ -260,13 +247,10 @@
             }
         }
 
-        // 從條碼數字中智慧解析出正確的面額（修正以往固定帶入 500 的問題）
         function parseAmountFromBarcode(barcodeText) {
-            if (!barcodeText) return 100; // 預設 100 元
+            if (!barcodeText) return 100;
             
-            // 某些超商禮券或商品卡條碼內含金額代碼，可在此進行擴充匹配
-            // 例如常見 100 元面額條碼特徵
-            if (barcodeText.includes('0100') || barcodeText.length === 13 && barcodeText.startsWith('9100')) {
+            if (barcodeText.includes('0100') || (barcodeText.length === 13 && barcodeText.startsWith('9100'))) {
                 return 100;
             }
             if (barcodeText.includes('0500')) {
@@ -276,11 +260,9 @@
                 return 1000;
             }
             
-            // 預設常見小面額商品卡預設為 100 元（依您實際測試回報調整）
             return 100;
         }
 
-        // 1. 批量讀取相簿圖片並透過 Canvas 高畫質解碼與正確解析面額
         async function handleBatchImages(event) {
             const files = event.target.files;
             if (!files || files.length === 0) return;
@@ -301,7 +283,6 @@
                         let detectedStore = "7-11";
                         if (barcodeText.startsWith('9') || barcodeText.startsWith('2')) detectedStore = "全家";
 
-                        // 動態解析面額，不再強制寫死 500
                         const smartAmount = parseAmountFromBarcode(barcodeText);
 
                         const newCard = {
@@ -336,7 +317,7 @@
                     const img = new Image();
                     img.onload = async function() {
                         const canvas = document.createElement('canvas');
-                        const MAX_SIZE = 1600; // 提升處理畫質上限
+                        const MAX_SIZE = 1600;
                         let width = img.width;
                         let height = img.height;
 
@@ -412,7 +393,6 @@
             }
         }
 
-        // 2. 高解析度與短焦距鏡頭相機掃描
         async function startScanner() {
             const container = document.getElementById('videoContainer');
             const tip = document.getElementById('scannerTip');
@@ -447,7 +427,6 @@
                     }
                 }
 
-                // 強制請求較高解析度串流，提升掃描準確度
                 const constraints = {
                     video: {
                         deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined,
@@ -534,7 +513,7 @@
             }
 
             if (deductVal > card.remainingAmount) {
-                if (!confirm('提示：輸入扣款金額大於目前剩餘金額，確定要將餘額歸零嗎？')) {
+                if (!confirm('提示：輸入的扣款金額大於目前剩餘金額，確定要將餘額歸零嗎？')) {
                     return;
                 }
             }
@@ -551,7 +530,7 @@
             localStorage.setItem('convenience_store_cards_v3', JSON.stringify(cards));
             barcodeModal.hide();
             renderCards();
-            alert('扣款成功！剩餘金額已自動更新');
+            alert('扣款成功！剩餘金額已自動更新。');
         }
 
         function saveCard(e) {
