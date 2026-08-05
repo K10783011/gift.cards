@@ -1,15 +1,15 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>超商商品卡便捷管理系統</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- JsBarcode library for rendering 1D barcodes -->
   <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
   <!-- FontAwesome Icons -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     svg { image-rendering: pixelated; }
   </style>
@@ -47,7 +47,7 @@
         <i class="fa-solid fa-file-image text-lg"></i>
         <span>照片批次匯入商品卡</span>
       </button>
-      <input type="file" id="batch-file-input" accept="image/*" multiple class="hidden" onchange="handleFileSelect(event)" />
+      <input type="file" id="batch-file-input" accept="image/*" multiple class="hidden" onchange="handleFileSelect(event)">
     </div>
 
     <!-- Category Filter Tabs -->
@@ -64,8 +64,8 @@
       <button onclick="setFilter('Hi-Life')" id="tab-Hi-Life" class="tab-btn px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition bg-white text-slate-600 border border-slate-200 hover:bg-slate-50">
         萊爾富 Hi-Life
       </button>
-      <button onclick="setFilter('OKMart')" id="tab-OKMart" class="tab-btn px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition bg-white text-slate-600 border border-slate-200 hover:bg-slate-50">
-        OK Mart
+      <button onclick="setFilter('宜睿')" id="tab-宜睿" class="tab-btn px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition bg-white text-slate-600 border border-slate-200 hover:bg-slate-50">
+        宜睿
       </button>
     </div>
 
@@ -108,26 +108,16 @@
       </div>
 
       <div class="space-y-4">
-        <div class="flex flex-col gap-2">
-          <div class="flex justify-between items-center text-sm font-medium bg-indigo-50/60 p-3 rounded-lg border border-indigo-100">
-            <span class="text-slate-600">卡片目前餘額</span>
-            <span id="pay-modal-balance" class="text-lg font-bold text-indigo-700">NT$ 0</span>
-          </div>
-
-          <!-- Preset balances when card balance unknown -->
-          <div id="pay-presets" class="flex items-center gap-2 justify-center hidden">
-            <button type="button" class="px-3 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-sm" onclick="payPresetStartBalance(35)">NT$35</button>
-            <button type="button" class="px-3 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-sm" onclick="payPresetStartBalance(50)">NT$50</button>
-            <button type="button" class="px-3 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-sm" onclick="payPresetStartBalance(100)">NT$100</button>
-            <button type="button" class="px-3 py-1 rounded-md bg-white border border-slate-200 text-sm" onclick="document.getElementById('deduct-amount').focus()">手動輸入</button>
-          </div>
+        <div class="flex justify-between items-center text-sm font-medium bg-indigo-50/60 p-3 rounded-lg border border-indigo-100">
+          <span class="text-slate-600">卡片目前餘額</span>
+          <span id="pay-modal-balance" class="text-lg font-bold text-indigo-700">NT$ 0</span>
         </div>
 
         <form onsubmit="handleCheckout(event)" class="space-y-3">
           <div>
             <label class="block text-xs font-semibold text-slate-600 mb-1">輸入本次消費扣款金額 (NT$)</label>
             <div class="relative">
-              <input type="number" id="deduct-amount" min="1" required placeholder="例如：45" class="w-full pl-8 pr-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none font-semibold" />
+              <input type="number" id="deduct-amount" min="1" required placeholder="例如：45" class="w-full pl-8 pr-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none font-semibold">
               <span class="absolute left-3 top-2.5 text-slate-400">$</span>
             </div>
           </div>
@@ -157,19 +147,17 @@
       <form onsubmit="handleSaveEdit(event)" class="space-y-4">
         <div>
           <label class="block text-xs font-semibold text-slate-600 mb-1">發行超商</label>
-          <select id="edit-store" onchange="toggleStoreOther('edit-store','edit-store-other')" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-medium">
+          <select id="edit-store" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-medium">
             <option value="7-11">7-ELEVEN</option>
             <option value="FamilyMart">全家 FamilyMart</option>
             <option value="Hi-Life">萊爾富 Hi-Life</option>
-            <option value="OKMart">OK Mart</option>
-            <option value="other">其他（手動輸入）</option>
+            <option value="宜睿">宜睿</option>
           </select>
-          <input id="edit-store-other" type="text" placeholder="輸入其他超商名稱" class="mt-2 hidden w-full px-3 py-2 border border-slate-200 rounded-lg" />
         </div>
 
         <div>
           <label class="block text-xs font-semibold text-slate-600 mb-1">一維條碼 / 卡號</label>
-          <input type="text" id="edit-code" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-mono tracking-wide" />
+          <input type="text" id="edit-code" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-mono tracking-wide">
         </div>
 
         <div>
@@ -185,13 +173,7 @@
 
         <div>
           <label class="block text-xs font-semibold text-slate-600 mb-1">卡片餘額 (NT$)</label>
-          <input type="number" id="edit-balance" min="0" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-slate-800" />
-          <div class="mt-2 flex items-center gap-2">
-            <button type="button" class="px-3 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-sm" onclick="presetEditBalance(35)">35</button>
-            <button type="button" class="px-3 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-sm" onclick="presetEditBalance(50)">50</button>
-            <button type="button" class="px-3 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-sm" onclick="presetEditBalance(100)">100</button>
-            <button type="button" class="px-3 py-1 rounded-md bg-white border border-slate-200 text-sm" onclick="document.getElementById('edit-balance').focus()">手動</button>
-          </div>
+          <input type="number" id="edit-balance" min="0" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-slate-800">
         </div>
 
         <div class="pt-2 flex space-x-3">
@@ -226,30 +208,22 @@
       <form onsubmit="executeBatchImport(event)" class="space-y-4 mt-4">
         <div>
           <label class="block text-xs font-semibold text-slate-600 mb-1">指定超商類別</label>
-          <select id="batch-store" onchange="toggleStoreOther('batch-store','batch-store-other')" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-medium">
+          <select id="batch-store" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-medium">
             <option value="auto">⚡ 依條碼前綴自動判斷</option>
             <option value="7-11">7-ELEVEN</option>
             <option value="FamilyMart">全家 FamilyMart</option>
             <option value="Hi-Life">萊爾富 Hi-Life</option>
-            <option value="OKMart">OK Mart</option>
-            <option value="other">其他（手動輸入）</option>
+            <option value="宜睿">宜睿</option>
           </select>
-          <input id="batch-store-other" type="text" placeholder="輸入其他超商名稱" class="mt-2 hidden w-full px-3 py-2 border border-slate-200 rounded-lg" />
         </div>
 
         <div>
           <label class="block text-xs font-semibold text-slate-600 mb-1">設定每張商品卡金額 (NT$)</label>
           <div class="relative">
-            <input type="number" id="batch-balance" min="0" placeholder="留空則提示預設 35/50/100/手動輸入" class="w-full pl-8 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-semibold" />
-            <span class="absolute left-3 top-2 text-slate-400">$</span>
+            <input type="number" id="batch-balance" min="0" placeholder="留空則自動隨機設定 ($50~$100)" class="w-full pl-8 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-semibold">
+<span class="absolute left-3 top-2 text-slate-400">$</span>
           </div>
-          <div class="mt-2 flex items-center gap-2">
-            <button type="button" class="px-3 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-sm" onclick="presetBatchBalance(35)">35</button>
-            <button type="button" class="px-3 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-sm" onclick="presetBatchBalance(50)">50</button>
-            <button type="button" class="px-3 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-sm" onclick="presetBatchBalance(100)">100</button>
-            <button type="button" class="px-3 py-1 rounded-md bg-white border border-slate-200 text-sm" onclick="document.getElementById('batch-balance').focus()">手動</button>
-          </div>
-          <p class="text-[11px] text-slate-400 mt-1">若這批卡片金額皆相同（例如：都是 $500），請直接在此輸入。</p>
+          <p class="text-[11px] text-slate-400 mt-1">若這批卡片金額皆相同（例如：都是 $100），請直接在此輸入。</p>
         </div>
 
         <div class="pt-2 flex space-x-3">
@@ -310,12 +284,12 @@
     console.warn('BarcodeDetector 不支援，將回退到模擬流程或加入第三方 library（建議引入 zxing/quagga）');
   }
 
-  // （其餘與之前相容的預設資料） - 小改： format -> originalFormat
+  // （其餘與之前相容的預設資料）
   const defaultCards = [
-    { id: '1', store: '7-11', code: '4710088432109', originalFormat: 'EAN13', balance: 350, date: '2026-03-10' },
-    { id: '2', store: 'FamilyMart', code: '5900128473', originalFormat: 'CODE128', balance: 120, date: '2026-03-12' },
-    { id: '3', store: 'Hi-Life', code: '4710382910', originalFormat: 'CODE128', balance: 0, date: '2026-02-28' },
-    { id: '4', store: 'OKMart', code: '4719001122', originalFormat: 'CODE128', balance: 200, date: '2026-03-15' }
+    { id: '1', store: '7-11', code: '4710088432109', format: 'EAN13', balance: 350, date: '2026-03-10' },
+    { id: '2', store: 'FamilyMart', code: '5900128473', format: 'CODE128', balance: 120, date: '2026-03-12' },
+    { id: '3', store: 'Hi-Life', code: '4710382910', format: 'CODE128', balance: 0, date: '2026-02-28' },
+    { id: '4', store: '宜睿', code: '4719001122', format: 'CODE128', balance: 200, date: '2026-03-15' }
   ];
 
   let cards = [];
@@ -329,7 +303,7 @@
     '7-11': { name: '7-ELEVEN', badge: 'bg-emerald-600' },
     'FamilyMart': { name: '全家 FamilyMart', badge: 'bg-blue-600' },
     'Hi-Life': { name: '萊爾富 Hi-Life', badge: 'bg-red-600' },
-    'OKMart': { name: 'OK Mart', badge: 'bg-rose-700' }
+    '宜睿': { name: '宜睿', badge: 'bg-rose-700' }
   };
 
   function detectBarcodeFormat(code) {
@@ -391,7 +365,7 @@
           cards = parsed.map(c => ({
             ...c,
             code: (c.code === undefined || c.code === null) ? '' : String(c.code),
-            originalFormat: c.originalFormat || c.format || detectBarcodeFormat(c.code)
+            format: c.format || detectBarcodeFormat(c.code)
           }));
           return;
         }
@@ -399,7 +373,7 @@
         console.error('格式錯誤，回復為預設值:', e);
       }
     }
-    cards = defaultCards.map(c => ({ ...c, code: String(c.code), originalFormat: c.originalFormat || c.format || detectBarcodeFormat(c.code) }));
+    cards = defaultCards.map(c => ({ ...c, code: String(c.code), format: c.format || detectBarcodeFormat(c.code) }));
     saveCardsToStorage();
   }
 
@@ -408,8 +382,7 @@
       const normalized = cards.map(c => ({
         ...c,
         code: (c.code === undefined || c.code === null) ? '' : String(c.code),
-        balance: (c.balance === undefined || c.balance === null) ? null : Number(c.balance),
-        originalFormat: c.originalFormat || null
+        balance: Number(c.balance) || 0
       }));
       safeStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
     } catch (e) {
@@ -536,8 +509,8 @@
     }
   }
 
-  function safeRenderBarcode(selector, code, originalFormat, options = {}) {
-    const renderFormat = originalFormat || detectBarcodeFormat(code);
+  function safeRenderBarcode(selector, code, format, options = {}) {
+    const renderFormat = format || detectBarcodeFormat(code);
     try {
       JsBarcode(selector, String(code), {
         format: renderFormat,
@@ -571,72 +544,6 @@
       .replaceAll("'", '&#039;');
   }
 
-  /* -------------------------
-     New helpers for UI enhancements:
-     - toggleStoreOther: show/hide "other store" input
-     - preset*Balance: set preset balances in edit/batch/pay contexts
-     ------------------------- */
-  function toggleStoreOther(selectId, otherInputId) {
-    const sel = document.getElementById(selectId);
-    const other = document.getElementById(otherInputId);
-    if (!sel || !other) return;
-    if (sel.value === 'other') other.classList.remove('hidden');
-    else other.classList.add('hidden');
-  }
-
-  function presetEditBalance(v) {
-    const el = document.getElementById('edit-balance');
-    if (!el) return;
-    el.value = Number(v);
-  }
-
-  function presetBatchBalance(v) {
-    const el = document.getElementById('batch-balance');
-    if (!el) return;
-    el.value = Number(v);
-  }
-
-  // When pay modal opens and card.balance is null, allow user to pick a start balance
-  function payPresetStartBalance(v) {
-    const card = cards.find(c => String(c.id) === String(selectedCardId));
-    if (!card) return;
-    card.balance = Number(v);
-    saveCardsToStorage();
-    // update UI
-    document.getElementById('pay-modal-balance').innerText = `NT$ ${Number(card.balance).toLocaleString()}`;
-    renderCards();
-    // hide presets after chosen
-    document.getElementById('pay-presets').classList.add('hidden');
-  }
-
-  /* -------------------------
-     Classification helpers (lazy)
-     - classifyStoreByBarcode: same as before
-     - defaultBalanceForStore: used when setting default balance if needed
-     ------------------------- */
-  function classifyStoreByBarcode(code) {
-    const s = String(code || '');
-    if (s.startsWith('711') || s.startsWith('471')) return '7-11';
-    if (s.startsWith('590')) return 'FamilyMart';
-    if (s.startsWith('4710')) return 'Hi-Life';
-    return 'OKMart';
-  }
-  function defaultBalanceForStore(store) {
-    switch (store) {
-      case '7-11': return 500;
-      case 'FamilyMart': return 300;
-      case 'Hi-Life': return 200;
-      case 'OKMart': return 250;
-      default: return 200;
-    }
-  }
-
-  /* -------------------------
-     Rendering and main logic largely unchanged,
-     but uses originalFormat and defers balance assignment on import
-     and shows pay-presets when card.balance is null
-     ------------------------- */
-
   function renderCards() {
     const grid = document.getElementById('card-grid');
     const emptyState = document.getElementById('empty-state');
@@ -655,7 +562,7 @@
       cardEl.className = `bg-white rounded-2xl shadow-sm border ${isDepleted ? 'border-slate-300 grayscale opacity-75' : 'border-slate-200'} p-5 relative transition duration-200 hover:shadow-md flex flex-col justify-between overflow-hidden`;
 
       const codeText = String(card.code || '');
-      const displayFormat = card.originalFormat || card.format || detectBarcodeFormat(codeText);
+      const displayFormat = card.format || detectBarcodeFormat(codeText);
 
       cardEl.innerHTML = `
         <div>
@@ -684,11 +591,11 @@
           <div>
             <span class="text-xs text-slate-400 block">剩餘金額</span>
             <span class="text-xl font-black ${isDepleted ? 'text-slate-500 line-through' : 'text-slate-800'}">
-              NT$ ${card.balance === null || card.balance === undefined ? '—' : Number(card.balance).toLocaleString()}
+              NT$ ${Number(card.balance).toLocaleString()}
             </span>
           </div>
           
-          <button onclick="openPayModal('${card.id}')" ${isDepleted || card.balance === null ? '' : ''} 
+          <button onclick="openPayModal('${card.id}')" ${isDepleted ? 'disabled' : ''} 
             class="px-4 py-2 text-sm font-bold rounded-lg ${isDepleted ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm'} transition">
             <i class="fa-solid fa-qrcode mr-1"></i> 結帳
           </button>
@@ -730,7 +637,7 @@
     renderCards();
   }
 
-  /* --- 相機條碼掃描（連續偵測，僅接受完整顯示的條碼） --- */
+  /* --- 相機條碼掃描（改成連續偵測，僅接受完整顯示的條碼） --- */
   async function openScanModal() {
     document.getElementById('scan-modal').classList.remove('hidden');
     const video = document.getElementById('camera-video');
@@ -751,8 +658,10 @@
       video.srcObject = cameraStream;
       statusText.innerText = "尋找一維條碼中...";
 
-      if (barcodeDetector) startCameraDetectLoop();
-      else {
+      // 開始偵測迴圈（若支援 BarcodeDetector）
+      if (barcodeDetector) {
+        startCameraDetectLoop();
+      } else {
         console.warn('BarcodeDetector 不支援：掃描會使用模擬按鈕 simulateCameraScanSuccess()');
         statusText.innerText = "裝置不支援 BarcodeDetector，請使用「擷取畫面並建立卡片」模擬功能或在支援的瀏覽器上使用";
       }
@@ -780,6 +689,7 @@
     const statusText = document.getElementById('camera-status');
     if (!video) return;
 
+    // 建立隱藏 canvas 取得影格
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
 
@@ -791,12 +701,14 @@
         canvas.height = video.videoHeight;
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
+        // 使用 BarcodeDetector 偵測
         const detections = await barcodeDetector.detect(canvas);
         if (!detections || detections.length === 0) {
           statusText.innerText = "尋找一維條碼中...";
           return;
         }
 
+        // 過濾：僅保留 boundingBox 完整位於畫面內的結果（margin）
         const margin = Math.max(2, Math.floor(Math.min(canvas.width, canvas.height) * 0.01)); // 1% 邊界
         const fullResults = detections.filter(d => {
           const b = d.boundingBox;
@@ -805,44 +717,48 @@
         });
 
         if (fullResults.length === 0) {
+          // 若沒有完整的，忽略
           statusText.innerText = "發現條碼，但都非完整顯示，請調整角度或距離";
           return;
         }
 
+        // 取第一個完整顯示的條碼（你可以改成加入全部）
         const picked = fullResults[0];
         const code = String(picked.rawValue || '');
-        const originalFormat = (picked.format && String(picked.format).toUpperCase()) || detectBarcodeFormat(code);
+        const format = (picked.format && String(picked.format).toUpperCase()) || detectBarcodeFormat(code);
 
-        // create card with balance = null (unknown) so user can pick preset later
+        // 建立卡片
         const newCard = {
           id: Date.now().toString(),
-          store: null, // lazy classify later
+          store: classifyStoreByBarcode(code),
           code: code,
-          originalFormat: originalFormat,
-          balance: null,
+          format: format,
+          balance: 100,
           date: new Date().toISOString().split('T')[0]
         };
         cards.unshift(newCard);
         saveCardsToStorage();
         renderCards();
 
+        // 停止偵測並關閉 modal
         stopCamera();
         closeModal('scan-modal');
       } catch (e) {
         console.error('camera detect error', e);
       }
-    }, 500);
+    }, 500); // 每 500ms 偵測一次，適度頻率避免 CPU 過高
   }
 
   function simulateCameraScanSuccess() {
+    // 若不支援 BarcodeDetector，維持模擬行為（保留）
     const mockCode = '471' + String(Math.floor(100000000 + Math.random() * 900000000));
-    const originalFormat = detectBarcodeFormat(mockCode);
+    const format = detectBarcodeFormat(mockCode);
     const newCard = {
       id: Date.now().toString(),
-      store: null,
+      store: classifyStoreByBarcode(mockCode),
       code: String(mockCode),
-      originalFormat: originalFormat,
-      balance: null,
+      format: format,
+      balance: 500,
       date: new Date().toISOString().split('T')[0]
     };
 
@@ -870,12 +786,12 @@
     if (textEl) textEl.innerText = `已選取 ${pendingBatchFiles.length} 張照片`;
     if (balanceEl) balanceEl.value = '';
     if (storeEl) storeEl.value = 'auto';
-    toggleStoreOther('batch-store','batch-store-other');
 
     const modal = document.getElementById('batch-modal');
     if (modal) modal.classList.remove('hidden');
   }
 
+  // helper: 將 image/file 轉成 ImageBitmap (或 Image)
   function createImageBitmapFromFile(file) {
     return new Promise((resolve, reject) => {
       const img = new Image();
@@ -885,6 +801,7 @@
     });
   }
 
+  // 判斷 boundingBox 完整（相對於 canvas）
   function isBoundingBoxFullyVisible(bbox, canvasWidth, canvasHeight, margin=2) {
     if (!bbox) return false;
     return (bbox.x >= margin &&
@@ -894,6 +811,7 @@
   }
 
   async function detectBarcodesInImageElement(imgElement) {
+    // imgElement: HTMLImageElement
     const canvas = document.createElement('canvas');
     canvas.width = imgElement.naturalWidth || imgElement.width;
     canvas.height = imgElement.naturalHeight || imgElement.height;
@@ -901,12 +819,14 @@
     ctx.drawImage(imgElement, 0, 0, canvas.width, canvas.height);
 
     if (!barcodeDetector) {
+      // fallback: 無法辨識，回傳空陣列（或你可以整合第三方 lib）
       console.warn('BarcodeDetector 不可用，跳過實際偵測。建議引入 zxing / quagga');
       return [];
     }
 
     try {
       const detections = await barcodeDetector.detect(canvas);
+      // filter 只要完整顯示的 boundingBox
       const margin = Math.max(2, Math.floor(Math.min(canvas.width, canvas.height) * 0.01)); // 1% 邊界
       const full = detections.filter(d => isBoundingBoxFullyVisible(d.boundingBox, canvas.width, canvas.height, margin));
       return full.map(d => ({
@@ -924,32 +844,27 @@
     e.preventDefault();
     if (pendingBatchFiles.length === 0) return;
 
-    // read selected store (if 'other', use the other input)
-    let selectedStore = document.getElementById('batch-store').value;
-    if (selectedStore === 'other') {
-      const other = document.getElementById('batch-store-other').value.trim();
-      if (other) selectedStore = other;
-    }
-
+    const selectedStore = document.getElementById('batch-store').value;
     const customBalanceInput = document.getElementById('batch-balance').value;
     const parsedBalance = customBalanceInput !== '' ? parseInt(customBalanceInput, 10) : null;
 
+    // 如果沒有 BarcodeDetector，還是保留原模擬流程（避免完全無法使用）
     if (!barcodeDetector) {
       console.warn('Browser 不支援 BarcodeDetector，使用原模擬匯入流程');
       pendingBatchFiles.forEach((file, index) => {
         const prefixes = ['4710', '5900', '7110', '4719'];
         const prefix = prefixes[index % prefixes.length];
         const generatedCode = prefix + String(Math.floor(10000000 + Math.random() * 90000000));
-        const originalFormat = detectBarcodeFormat(generatedCode);
+        const format = detectBarcodeFormat(generatedCode);
 
         const cardStore = selectedStore === 'auto' ? classifyStoreByBarcode(generatedCode) : selectedStore;
-        const cardBalance = (parsedBalance !== null && !isNaN(parsedBalance)) ? Math.max(0, parsedBalance) : null;
+       const cardBalance = (parsedBalance !== null && !isNaN(parsedBalance))  ? Math.max(0, parsedBalance)  : getRandomIntInclusive(50, 100);
 
         cards.unshift({
           id: (Date.now() + index).toString(),
           store: cardStore,
           code: String(generatedCode),
-          originalFormat,
+          format: format,
           balance: cardBalance,
           date: new Date().toISOString().split('T')[0]
         });
@@ -963,29 +878,31 @@
       return;
     }
 
+    // 有 BarcodeDetector：針對每張照片偵測並只使用完整顯示的條碼
     for (let i = 0; i < pendingBatchFiles.length; i++) {
       const file = pendingBatchFiles[i];
       try {
         const img = await createImageBitmapFromFile(file);
         const detections = await detectBarcodesInImageElement(img);
         if (!detections || detections.length === 0) {
+          // 無完整條碼 -> 跳過（或可選擇嘗試模糊辨識）
           console.info(`第 ${i+1} 張圖：未偵測到完整條碼，已跳過`);
           continue;
         }
 
-        // 建立每個完整條碼的卡片；若 batch-balance 有值則使用，否則 balance=null (user can pick preset later)
+        // 為每個完整條碼建立卡片（也可以只取第一個）
         for (let j = 0; j < detections.length; j++) {
           const d = detections[j];
           const code = String(d.rawValue || '');
-          const originalFormat = d.format || detectBarcodeFormat(code);
+          const format = d.format || detectBarcodeFormat(code);
           const cardStore = (selectedStore === 'auto') ? classifyStoreByBarcode(code) : selectedStore;
-          const cardBalance = (parsedBalance !== null && !isNaN(parsedBalance)) ? Math.max(0, parsedBalance) : null;
+          const cardBalance = (parsedBalance !== null && !isNaN(parsedBalance)) ? Math.max(0, parsedBalance) : (200 + (i * 100) + j);
 
           cards.unshift({
             id: (Date.now() + i + j).toString(),
             store: cardStore,
             code: code,
-            originalFormat: originalFormat,
+            format: format,
             balance: cardBalance,
             date: new Date().toISOString().split('T')[0]
           });
@@ -1008,26 +925,10 @@
     const card = cards.find(c => String(c.id) === String(id));
     if (!card) return;
 
-    // store select: if store isn't in known list, select "other" and fill input
-    const storeSelect = document.getElementById('edit-store');
-    const storeOther = document.getElementById('edit-store-other');
-    if (Object.keys(storeConfigs).includes(card.store)) {
-      storeSelect.value = card.store;
-      storeOther.value = '';
-      storeOther.classList.add('hidden');
-    } else if (card.store && card.store !== null) {
-      storeSelect.value = 'other';
-      storeOther.value = card.store;
-      storeOther.classList.remove('hidden');
-    } else {
-      storeSelect.value = '7-11';
-      storeOther.value = '';
-      storeOther.classList.add('hidden');
-    }
-
+    document.getElementById('edit-store').value = card.store;
     document.getElementById('edit-code').value = String(card.code);
-    document.getElementById('edit-format').value = card.originalFormat || detectBarcodeFormat(card.code);
-    document.getElementById('edit-balance').value = card.balance === null || card.balance === undefined ? '' : Number(card.balance);
+    document.getElementById('edit-format').value = card.format || detectBarcodeFormat(card.code);
+    document.getElementById('edit-balance').value = Number(card.balance);
 
     document.getElementById('edit-modal').classList.remove('hidden');
   }
@@ -1036,19 +937,10 @@
     e.preventDefault();
     const card = cards.find(c => String(c.id) === String(selectedCardId));
     if (card) {
-      // handle store possibly "other"
-      const storeSel = document.getElementById('edit-store').value;
-      if (storeSel === 'other') {
-        const other = document.getElementById('edit-store-other').value.trim();
-        card.store = other || 'other';
-      } else {
-        card.store = storeSel;
-      }
-
+      card.store = document.getElementById('edit-store').value;
       card.code = String(document.getElementById('edit-code').value.trim());
-      card.originalFormat = document.getElementById('edit-format').value;
-      const balVal = document.getElementById('edit-balance').value;
-      card.balance = balVal === '' ? null : Math.max(0, parseInt(balVal, 10) || 0);
+      card.format = document.getElementById('edit-format').value;
+      card.balance = Math.max(0, parseInt(document.getElementById('edit-balance').value, 10) || 0);
 
       saveCardsToStorage();
       renderCards();
@@ -1070,26 +962,21 @@
     const card = cards.find(c => String(c.id) === String(id));
     if (!card) return;
 
-    const displayStore = card.store || classifyStoreByBarcode(card.code);
-    const config = storeConfigs[displayStore] || { name: displayStore, badge: 'bg-slate-500' };
+    const config = storeConfigs[card.store] || storeConfigs['7-11'];
     const badge = document.getElementById('modal-store-badge');
     badge.innerText = config.name;
     badge.className = `px-3 py-1 rounded-full text-xs font-bold tracking-wider text-white inline-block mb-1 ${config.badge}`;
 
     document.getElementById('pay-card-num').innerText = String(card.code);
-    document.getElementById('pay-barcode-format').innerText = card.originalFormat || detectBarcodeFormat(card.code);
-
-    // If balance unknown, show placeholder and presets
-    if (card.balance === null || card.balance === undefined) {
-      document.getElementById('pay-modal-balance').innerText = '請選擇預設金額';
-      document.getElementById('pay-presets').classList.remove('hidden');
-    } else {
-      document.getElementById('pay-modal-balance').innerText = `NT$ ${Number(card.balance).toLocaleString()}`;
-      document.getElementById('pay-presets').classList.add('hidden');
-    }
-
+    document.getElementById('pay-barcode-format').innerText = card.format || detectBarcodeFormat(card.code);
+    document.getElementById('pay-modal-balance').innerText = `NT$ ${Number(card.balance).toLocaleString()}`;
     document.getElementById('deduct-amount').value = '';
-    safeRenderBarcode("#pay-barcode", String(card.code), card.originalFormat, { height: 70, lineColor: "#0f172a" });
+
+    safeRenderBarcode("#pay-barcode", String(card.code), card.format, {
+      height: 70,
+      lineColor: "#0f172a"
+    });
+
     document.getElementById('pay-modal').classList.remove('hidden');
   }
 
@@ -1112,12 +999,6 @@
     const card = cards.find(c => String(c.id) === String(selectedCardId));
     if (!card) {
       alert('找不到卡片');
-      return;
-    }
-
-    // If balance was null, ensure it's set before attempting atomic update
-    if (card.balance === null || card.balance === undefined) {
-      alert('此卡尚未設定初始金額，請在「出示條碼」中選擇預設金額或先編輯卡片設定金額');
       return;
     }
 
@@ -1144,6 +1025,13 @@
     }
   }
 
-  </script>
+  function classifyStoreByBarcode(code) {
+    const s = String(code || '');
+    if (s.startsWith('711') || s.startsWith('471')) return '7-11';
+    if (s.startsWith('590')) return 'FamilyMart';
+    if (s.startsWith('4710')) return 'Hi-Life';
+    return '宜睿';
+  }
+</script>
 </body>
 </html>
